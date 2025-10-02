@@ -19,12 +19,13 @@ import org.jetbrains.compose.ui.tooling.preview.Preview
 import gmcmp.composeapp.generated.resources.Res
 import gmcmp.composeapp.generated.resources.compose_multiplatform
 import ru.acs.grandmap.ui.PingScreen
+import ru.acs.grandmap.ui.RootScaffold
 
 @Composable
 @Preview
 fun App() {
     MaterialTheme {
-        PingScreen()
+        RootScaffold()
 //        var showContent by remember { mutableStateOf(false) }
 //        Column(
 //            modifier = Modifier

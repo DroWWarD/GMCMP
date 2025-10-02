@@ -47,6 +47,8 @@ kotlin {
                 implementation(compose.components.uiToolingPreview)
                 implementation(libs.androidx.lifecycle.viewmodelCompose)
                 implementation(libs.androidx.lifecycle.runtimeCompose)
+                implementation(compose.materialIconsExtended)
+
 
                 // Ktor (общие)
                 implementation("io.ktor:ktor-client-core:3.0.1")
