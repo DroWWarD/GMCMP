@@ -16,7 +16,7 @@ kotlin {
             jvmTarget.set(JvmTarget.JVM_11)
         }
     }
-    
+
     listOf(
         iosArm64(),
         iosSimulatorArm64()
@@ -29,38 +29,76 @@ kotlin {
     
     jvm()
     
-    js {
-        browser()
-        binaries.executable()
-    }
-    
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
         browser()
         binaries.executable()
     }
-    
+
     sourceSets {
-        androidMain.dependencies {
-            implementation(compose.preview)
-            implementation(libs.androidx.activity.compose)
+        // === ОБЩИЕ зависимости (здесь и Ktor core) ===
+        val commonMain by getting {
+            dependencies {
+                implementation(compose.runtime)
+                implementation(compose.foundation)
+                implementation(compose.material3)
+                implementation(compose.ui)
+                implementation(compose.components.resources)
+                implementation(compose.components.uiToolingPreview)
+                implementation(libs.androidx.lifecycle.viewmodelCompose)
+                implementation(libs.androidx.lifecycle.runtimeCompose)
+
+                // Ktor (общие)
+                implementation("io.ktor:ktor-client-core:3.0.1")
+                implementation("io.ktor:ktor-client-content-negotiation:3.0.1")
+                implementation("io.ktor:ktor-serialization-kotlinx-json:3.0.1")
+                implementation("io.ktor:ktor-client-logging:3.0.1")
+                implementation("io.ktor:ktor-client-websockets:3.0.1")
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+            }
         }
-        commonMain.dependencies {
-            implementation(compose.runtime)
-            implementation(compose.foundation)
-            implementation(compose.material3)
-            implementation(compose.ui)
-            implementation(compose.components.resources)
-            implementation(compose.components.uiToolingPreview)
-            implementation(libs.androidx.lifecycle.viewmodelCompose)
-            implementation(libs.androidx.lifecycle.runtimeCompose)
+
+        // === ANDROID ===
+        val androidMain by getting {
+            dependencies {
+                implementation(compose.preview)
+                implementation(libs.androidx.activity.compose)
+
+                // Движок для Ktor
+                implementation("io.ktor:ktor-client-okhttp:3.0.1")
+            }
         }
-        commonTest.dependencies {
-            implementation(libs.kotlin.test)
+
+        // === JVM (Desktop) ===
+        val jvmMain by getting {
+            dependencies {
+                implementation(compose.desktop.currentOs)
+                implementation(libs.kotlinx.coroutinesSwing)
+
+                // Движок для Ktor
+                implementation("io.ktor:ktor-client-okhttp:3.0.1")
+            }
         }
-        jvmMain.dependencies {
-            implementation(compose.desktop.currentOs)
-            implementation(libs.kotlinx.coroutinesSwing)
+
+        // === iOS (общий сорссет для iosArm64/iosSimulatorArm64) ===
+        val iosArm64Main by getting {
+            dependencies { implementation("io.ktor:ktor-client-darwin:3.0.1") }
+        }
+        val iosSimulatorArm64Main by getting {
+            dependencies { implementation("io.ktor:ktor-client-darwin:3.0.1") }
+        }
+
+        // === Wasm JS ===
+        val wasmJsMain by getting {
+            dependencies {
+                // Движок для Ktor
+                implementation("io.ktor:ktor-client-js:3.0.1")
+            }
+        }
+
+        // Тесты оставляем как были
+        val commonTest by getting {
+            dependencies { implementation(libs.kotlin.test) }
         }
     }
 }
