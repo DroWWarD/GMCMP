@@ -5,13 +5,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import ru.acs.grandmap.network.makeHttpClient
+
 import ru.acs.grandmap.network.ping
+import ru.acs.grandmap.di.rememberHttpClientDI
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PingScreen() {
-    val client = remember { makeHttpClient(isDebug = true) }
+    val client = rememberHttpClientDI()
 
     var run by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }

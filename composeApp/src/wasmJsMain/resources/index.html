@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>GMCMP</title>
+    <style>
+        html, body { margin:0; padding:0; height:100%; overflow:hidden; }
+        #ComposeTarget { width:100vw; height:100vh; display:block; }
+    </style>
+</head>
+<body>
+<canvas id="ComposeTarget"></canvas>
+
+<!-- В dev сборке entry обычно лежит в корне как /composeApp.js -->
+<script type="module" src="/composeApp.js"></script>
+<!-- Если вдруг 404 — попробуй этот путь: -->
+<!-- <script type="module" src="/composeApp/composeApp.js"></script> -->
+</body>
+</html>

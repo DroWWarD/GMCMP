@@ -60,8 +60,17 @@ kotlin {
             }
         }
 
+        val nonWasmMain by creating {
+            dependsOn(commonMain)
+            dependencies {
+                implementation("io.insert-koin:koin-core:3.5.6")
+                implementation("io.insert-koin:koin-compose:1.1.5")
+            }
+        }
+
         // === ANDROID ===
         val androidMain by getting {
+            dependsOn(nonWasmMain)
             dependencies {
                 implementation(compose.preview)
                 implementation(libs.androidx.activity.compose)
@@ -73,6 +82,7 @@ kotlin {
 
         // === JVM (Desktop) ===
         val jvmMain by getting {
+            dependsOn(nonWasmMain)
             dependencies {
                 implementation(compose.desktop.currentOs)
                 implementation(libs.kotlinx.coroutinesSwing)
@@ -84,9 +94,11 @@ kotlin {
 
         // === iOS (общий сорссет для iosArm64/iosSimulatorArm64) ===
         val iosArm64Main by getting {
+            dependsOn(nonWasmMain)
             dependencies { implementation("io.ktor:ktor-client-darwin:3.0.1") }
         }
         val iosSimulatorArm64Main by getting {
+            dependsOn(nonWasmMain)
             dependencies { implementation("io.ktor:ktor-client-darwin:3.0.1") }
         }
 
@@ -98,7 +110,7 @@ kotlin {
             }
         }
 
-        // Тесты оставляем как были
+        // Тесты
         val commonTest by getting {
             dependencies { implementation(libs.kotlin.test) }
         }
