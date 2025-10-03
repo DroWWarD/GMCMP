@@ -1,34 +1,60 @@
 package ru.acs.grandmap.ui
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.CardTravel
 import androidx.compose.material.icons.filled.Newspaper
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.VideogameAsset
+import com.arkivanov.decompose.extensions.compose.stack.Children
+import com.arkivanov.decompose.extensions.compose.subscribeAsState
+import ru.acs.grandmap.feature.work.WorkContent
+import ru.acs.grandmap.navigation.RootComponent
+import ru.acs.grandmap.navigation.rememberRootComponent
 
-// Модель вкладки
 sealed class Tab(val route: String, val label: String, val icon: ImageVector) {
     data object Me    : Tab("me",    "Профиль",      Icons.Filled.Person)
     data object Work  : Tab("work",  "Функции",      Icons.Filled.CardTravel)
-    data object Chat : Tab("chat", "Чат",  Icons.AutoMirrored.Filled.Chat)
+    data object Chat  : Tab("chat",  "Чат",          Icons.AutoMirrored.Filled.Chat)
     data object News  : Tab("news",  "Новости",      Icons.Filled.Newspaper)
-    data object Game : Tab("game", "Игры",  Icons.Filled.VideogameAsset)
+    data object Game  : Tab("game",  "Игры",         Icons.Filled.VideogameAsset)
+}
 
+private fun titleFor(tab: Tab) = when (tab) {
+    Tab.Work -> "Главная"
+    Tab.Chat -> "Чат"
+    Tab.News -> "Новости"
+    Tab.Game -> "Уведомления"
+    Tab.Me   -> "Профиль"
+}
+
+@Composable
+private fun Placeholder(text: String) {
+    Box(Modifier.fillMaxSize().padding(16.dp)) { Text(text) }
 }
 
 @Composable
 fun RootScaffold() {
-    // список вкладок
+    val root = rememberRootComponent()
+    val stack by root.childStack.subscribeAsState()
+
+    // активная вкладка из стека
+    val selected: Tab = when (stack.active.configuration) {
+        RootComponent.Config.Work -> Tab.Work
+        RootComponent.Config.Chat -> Tab.Chat
+        RootComponent.Config.News -> Tab.News
+        RootComponent.Config.Game -> Tab.Game
+        RootComponent.Config.Me   -> Tab.Me
+    }
+
     val tabs = remember { listOf(Tab.Me, Tab.Work, Tab.Chat, Tab.News, Tab.Game) }
-    var selected by remember { mutableStateOf<Tab>(Tab.Work) }
 
     // адаптивность: bottom bar < 600dp, иначе rail
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -36,19 +62,15 @@ fun RootScaffold() {
 
         if (compact) {
             Scaffold(
-                topBar = { AppTopBar(title = when (selected) {
-                    Tab.Work -> "Главная"
-                    Tab.Chat -> "Чат"
-                    Tab.News -> "Новости"
-                    Tab.Game -> "Уведомления"
-                    Tab.Me -> "Профиль"
-                }) },
+                topBar = { AppTopBar(title = titleFor(selected)) },
                 bottomBar = {
                     NavigationBar {
                         tabs.forEach { t ->
                             NavigationBarItem(
                                 selected = (t == selected),
-                                onClick = { selected = t },
+                                onClick = {
+                                    if (t == selected) root.reselect(t) else root.select(t)
+                                },
                                 icon = { Icon(t.icon, contentDescription = t.label) },
                                 label = { Text(t.label) }
                             )
@@ -57,7 +79,15 @@ fun RootScaffold() {
                 }
             ) { paddings ->
                 Box(Modifier.fillMaxSize().padding(paddings)) {
-                    TabContent(selected)
+                    Children(stack) { child ->
+                        when (val inst = child.instance) {
+                            is RootComponent.Child.Work -> WorkContent(inst.component)
+                            is RootComponent.Child.Chat -> Placeholder("Здесь будут чаты")
+                            is RootComponent.Child.News -> Placeholder("Здесь будут новости")
+                            is RootComponent.Child.Game -> Placeholder("Здесь будут уведомления")
+                            is RootComponent.Child.Me   -> Placeholder("Здесь профиль")
+                        }
+                    }
                 }
             }
         } else {
@@ -66,42 +96,28 @@ fun RootScaffold() {
                     tabs.forEach { t ->
                         NavigationRailItem(
                             selected = (t == selected),
-                            onClick = { selected = t },
+                            onClick = { root.select(t) },
                             icon = { Icon(t.icon, contentDescription = t.label) },
                             label = { Text(t.label) }
                         )
                     }
                 }
                 Column(Modifier.fillMaxSize()) {
-                    AppTopBar(title = when (selected) {
-                        Tab.Work -> "Главная"
-                        Tab.Chat -> "Чат"
-                        Tab.News -> "Новости"
-                        Tab.Game -> "Уведомления"
-                        Tab.Me -> "Профиль"
-                    })
+                    AppTopBar(title = titleFor(selected))
                     Divider()
                     Box(Modifier.fillMaxSize()) {
-                        TabContent(selected)
+                        Children(stack) { child ->
+                            when (val inst = child.instance) {
+                                is RootComponent.Child.Work -> WorkContent(inst.component)
+                                is RootComponent.Child.Chat -> Placeholder("Здесь будут чаты")
+                                is RootComponent.Child.News -> Placeholder("Здесь будут новости")
+                                is RootComponent.Child.Game -> Placeholder("Здесь будут уведомления")
+                                is RootComponent.Child.Me   -> Placeholder("Здесь профиль")
+                            }
+                        }
                     }
                 }
             }
         }
     }
-}
-
-@Composable
-private fun TabContent(tab: Tab) {
-    when (tab) {
-        Tab.Work  -> PingScreen()                  // используем уже готовый экран
-        Tab.News  -> Placeholder("Здесь будут новости")
-        Tab.Game -> Placeholder("Здесь будут уведомления")
-        Tab.Chat -> Placeholder("Здесь будут чаты")
-        Tab.Me    -> Placeholder("Здесь профиль")
-    }
-}
-
-@Composable
-private fun Placeholder(text: String) {
-    Box(Modifier.fillMaxSize().padding(16.dp)) { Text(text) }
 }

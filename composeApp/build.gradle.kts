@@ -8,6 +8,7 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.composeHotReload)
+    alias(libs.plugins.kotlinSerialization)
 }
 
 kotlin {
@@ -57,12 +58,19 @@ kotlin {
                 implementation("io.ktor:ktor-client-logging:3.0.1")
                 implementation("io.ktor:ktor-client-websockets:3.0.1")
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+
+                //Navigation DECOMPOSE
+                val decompose = "3.2.0" // подходит для Compose 1.6–1.7
+                implementation("com.arkivanov.decompose:decompose:$decompose")
+                implementation("com.arkivanov.decompose:extensions-compose:$decompose")
+
             }
         }
 
         val nonWasmMain by creating {
             dependsOn(commonMain)
             dependencies {
+                //KOIN DI
                 implementation("io.insert-koin:koin-core:3.5.6")
                 implementation("io.insert-koin:koin-compose:1.1.5")
             }
