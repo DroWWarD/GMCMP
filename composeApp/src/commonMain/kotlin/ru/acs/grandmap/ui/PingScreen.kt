@@ -5,40 +5,37 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
+import ru.acs.grandmap.core.AppResult
+import ru.acs.grandmap.di.rememberAuthRepository
 
-import ru.acs.grandmap.network.ping
-import ru.acs.grandmap.di.rememberHttpClientDI
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PingScreen() {
-    val client = rememberHttpClientDI()
+    val repo = rememberAuthRepository()
+    val scope = rememberCoroutineScope()
 
-    var run by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
-    var result by remember { mutableStateOf("Нажми PING") }
+    var result by remember { mutableStateOf<String?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
 
-    // Без прямого использования kotlinx.coroutines.launch:
-    LaunchedEffect(run) {
-        if (run) {
-            loading = true
-            result = runCatching { ping(client) }.getOrElse { "Ошибка: ${it.message}" }
-            loading = false
-            run = false
-        }
-    }
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Button(
+            onClick = {
+                scope.launch {
+                    loading = true; result = null; error = null
+                    when (val r = repo.ping()) {
+                        is AppResult.Ok  -> result = r.value
+                        is AppResult.Err -> error  = r.message
+                    }
+                    loading = false
+                }
+            },
+            enabled = !loading
+        ) { Text(if (loading) "Пинг..." else "Ping") }
 
-    Scaffold(topBar = { TopAppBar(title = { Text("KMP Ping") }) }) { padd ->
-        Column(
-            Modifier.fillMaxSize().padding(padd).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Button(
-                enabled = !loading,
-                onClick = { run = true }
-            ) { Text(if (loading) "..." else "PING") }
-
-            Text(result)
-        }
+        result?.let { Text("Ответ: $it") }
+        error?.let { Text("Ошибка: $it", color = MaterialTheme.colorScheme.error) }
     }
 }

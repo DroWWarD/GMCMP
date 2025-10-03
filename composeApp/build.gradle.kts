@@ -63,6 +63,8 @@ kotlin {
                 val decompose = "3.2.0" // подходит для Compose 1.6–1.7
                 implementation("com.arkivanov.decompose:decompose:$decompose")
                 implementation("com.arkivanov.decompose:extensions-compose:$decompose")
+                //Логгирование
+                implementation("io.github.aakira:napier:2.7.1")
 
             }
         }

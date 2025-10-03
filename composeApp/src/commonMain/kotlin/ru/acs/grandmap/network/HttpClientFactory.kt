@@ -7,6 +7,7 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.plugins.logging.*
 import io.ktor.client.request.accept
+import io.ktor.client.request.header
 import io.ktor.http.ContentType
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
@@ -38,8 +39,10 @@ fun makeHttpClient(isDebug: Boolean = true): HttpClient = HttpClient(platformEng
     }
     defaultRequest {
         if (BASE_URL.isNotBlank()) {
-            url { takeFrom(BASE_URL) }   // НЕ uri
+            url { takeFrom(BASE_URL) }
         }
         accept(ContentType.Application.Json)
+        header("Accept", "application/json")
+        header("User-Agent", "GrandmApp-KMP/1.0")
     }
 }
