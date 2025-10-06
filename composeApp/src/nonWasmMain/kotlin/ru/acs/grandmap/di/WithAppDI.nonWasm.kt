@@ -6,15 +6,21 @@ import io.ktor.client.HttpClient
 import org.koin.compose.KoinContext
 import org.koin.compose.koinInject
 import org.koin.core.context.startKoin
+import ru.acs.grandmap.core.auth.TokenManager
 
 @Composable
 actual fun WithAppDI(content: @Composable () -> Unit) {
     remember(Unit) {
         initLoggingOnce()
-        // startKoin бросает KoinAppAlreadyStartedException при повторном старте.
-        // runCatching проглатывает её — запускаем ровно один раз.
         runCatching {
-            startKoin { modules(networkModule, repoModule) }
+            startKoin {
+                modules(
+                    storageModule,   // Settings + TokenStorage
+                    httpModule,      // plain + authed HttpClient
+                    authModule,      // AuthApi(plain) + TokenManager
+                    repoModule       // репозитории
+                )
+            }
         }
     }
     KoinContext { content() }
@@ -22,3 +28,5 @@ actual fun WithAppDI(content: @Composable () -> Unit) {
 
 @Composable
 actual fun rememberHttpClientDI(): HttpClient = koinInject()
+@Composable
+actual fun rememberTokenManagerDI(): TokenManager = koinInject()

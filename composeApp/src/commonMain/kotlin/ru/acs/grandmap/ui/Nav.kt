@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.VideogameAsset
 import com.arkivanov.decompose.extensions.compose.stack.Children
 import com.arkivanov.decompose.extensions.compose.subscribeAsState
+import ru.acs.grandmap.feature.authsandbox.AuthSandbox
 import ru.acs.grandmap.feature.work.WorkContent
 import ru.acs.grandmap.navigation.RootComponent
 import ru.acs.grandmap.navigation.rememberRootComponent
@@ -81,7 +82,7 @@ fun RootScaffold() {
                 Box(Modifier.fillMaxSize().padding(paddings)) {
                     Children(stack) { child ->
                         when (val inst = child.instance) {
-                            is RootComponent.Child.Work -> WorkContent(inst.component)
+                            is RootComponent.Child.Work -> AuthSandbox()
                             is RootComponent.Child.Chat -> Placeholder("Здесь будут чаты")
                             is RootComponent.Child.News -> Placeholder("Здесь будут новости")
                             is RootComponent.Child.Game -> Placeholder("Здесь будут уведомления")
@@ -108,7 +109,7 @@ fun RootScaffold() {
                     Box(Modifier.fillMaxSize()) {
                         Children(stack) { child ->
                             when (val inst = child.instance) {
-                                is RootComponent.Child.Work -> WorkContent(inst.component)
+                                is RootComponent.Child.Work -> AuthSandbox()
                                 is RootComponent.Child.Chat -> Placeholder("Здесь будут чаты")
                                 is RootComponent.Child.News -> Placeholder("Здесь будут новости")
                                 is RootComponent.Child.Game -> Placeholder("Здесь будут уведомления")

@@ -49,6 +49,7 @@ kotlin {
                 implementation(libs.androidx.lifecycle.viewmodelCompose)
                 implementation(libs.androidx.lifecycle.runtimeCompose)
                 implementation(compose.materialIconsExtended)
+                implementation(libs.datetime)
 
 
                 // Ktor (общие)
@@ -66,6 +67,10 @@ kotlin {
                 //Логгирование
                 implementation("io.github.aakira:napier:2.7.1")
 
+                implementation("com.russhwolf:multiplatform-settings-no-arg:1.1.1")
+                implementation("io.ktor:ktor-client-auth:3.0.1")
+
+
             }
         }
 
@@ -75,6 +80,8 @@ kotlin {
                 //KOIN DI
                 implementation("io.insert-koin:koin-core:3.5.6")
                 implementation("io.insert-koin:koin-compose:1.1.5")
+
+                implementation("com.russhwolf:multiplatform-settings-no-arg:1.1.1")
             }
         }
 
