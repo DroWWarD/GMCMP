@@ -14,7 +14,6 @@ import kotlinx.serialization.json.Json
 import ru.acs.grandmap.config.BASE_URL
 import io.ktor.http.takeFrom
 
-// Платформенный движок (OkHttp/Darwin/JS)
 expect fun platformEngine(): HttpClientEngineFactory<*>
 
 fun makeHttpClient(isDebug: Boolean = true): HttpClient = HttpClient(platformEngine()) {
