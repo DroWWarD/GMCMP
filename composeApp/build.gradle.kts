@@ -58,6 +58,8 @@ kotlin {
                 implementation("io.ktor:ktor-serialization-kotlinx-json:3.0.1")
                 implementation("io.ktor:ktor-client-logging:3.0.1")
                 implementation("io.ktor:ktor-client-websockets:3.0.1")
+                implementation("io.ktor:ktor-client-auth:3.0.1")
+                //Суриализация
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
 
                 //Navigation DECOMPOSE
@@ -68,8 +70,8 @@ kotlin {
                 implementation("io.github.aakira:napier:2.7.1")
 
                 implementation("com.russhwolf:multiplatform-settings-no-arg:1.1.1")
-                implementation("io.ktor:ktor-client-auth:3.0.1")
-
+                //SHA256
+                implementation("com.squareup.okio:okio:3.9.0")
 
             }
         }

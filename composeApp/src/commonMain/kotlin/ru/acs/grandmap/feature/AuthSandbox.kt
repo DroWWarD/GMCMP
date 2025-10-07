@@ -3,9 +3,7 @@ package ru.acs.grandmap.feature.authsandbox
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
@@ -16,157 +14,134 @@ import io.ktor.client.request.*
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.coroutines.launch
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
 import ru.acs.grandmap.core.auth.TokenManager
 import ru.acs.grandmap.core.auth.TokenPair
 import ru.acs.grandmap.di.rememberHttpClientDI
 import ru.acs.grandmap.di.rememberTokenManagerDI
+import ru.acs.grandmap.feature.asbDTO.RefreshResponseDto
+import ru.acs.grandmap.feature.asbDTO.StartPhoneRequestDto
+import ru.acs.grandmap.feature.asbDTO.StartPhoneResponseDto
 
-private const val AUTH_BASE = "/api/Auth"     // проверь свой Route/Controller
-private const val LOGIN_PATH = "$AUTH_BASE/login"
-private const val PING_PATH  = "$AUTH_BASE/ping"
-
-@Serializable
-private data class AuthRequestDto(
-    @SerialName("PhoneNumber") val phone: String,
-    @SerialName("Password")    val password: String
-)
-
-@Serializable
-private data class AuthResponseDto(
-    @SerialName("success")        val success: Boolean,
-    @SerialName("errorMessage")   val errorMessage: String? = null,
-    @SerialName("accessToken")    val accessToken: String? = null,
-    @SerialName("refreshToken")   val refreshToken: String? = null,
-    @SerialName("personnelNumber")val personnelNumber: String? = null,
-    @SerialName("canteens")       val canteens: String? = null,
-    @SerialName("fio")            val fio: String? = null
-    // при необходимости добавьте остальные поля
-)
+private const val AUTH_BASE      = "/api/Auth"                 // проверь Route
+private const val START_PHONE    = "$AUTH_BASE/start-phone"
+private const val PING           = "$AUTH_BASE/ping"
+private const val REFRESH_COOKIE = "$AUTH_BASE/refresh"        // эндпоинт, читающий refresh из cookie
 
 @Composable
-fun AuthSandbox(
-    modifier: Modifier = Modifier
-) {
+fun AuthSandbox(modifier: Modifier = Modifier) {
     val client: HttpClient = rememberHttpClientDI()
     val tokenManager: TokenManager = rememberTokenManagerDI()
     val scope = rememberCoroutineScope()
 
     var phone by remember { mutableStateOf("+79990000000") }
-    var password by remember { mutableStateOf("pass") }
-    var output by remember { mutableStateOf("") }
+    var deviceTitle by remember { mutableStateOf("Firefox on Win") }
+    var useCookies by remember { mutableStateOf(true) } // на WASM: true
+    var csrf by remember { mutableStateOf<String?>(null) }
 
+    var output by remember { mutableStateOf("") }
     fun log(line: String) {
-        output = buildString {
-            append(line)
-            append('\n')
-            append(output)
-        }
+        output = buildString { append(line).append('\n').append(output) }
     }
 
-    Column(
-        modifier = modifier
-            .padding(16.dp)
-            .fillMaxSize()
-    ) {
-        Text("Auth Sandbox")
+    Column(modifier = modifier.padding(16.dp).fillMaxSize()) {
+        Text("Auth Sandbox (start-phone)")
 
         Spacer(Modifier.height(12.dp))
-
         OutlinedTextField(
-            value = phone,
-            onValueChange = { phone = it },
-            label = { Text("Phone (+7/7/8...)") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
+            value = phone, onValueChange = { phone = it },
+            label = { Text("PhoneE164 (+7XXXXXXXXXX)") },
+            singleLine = true, modifier = Modifier.fillMaxWidth()
         )
-
         Spacer(Modifier.height(8.dp))
-
         OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
-            label = { Text("Password") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
+            value = deviceTitle, onValueChange = { deviceTitle = it },
+            label = { Text("Device title") },
+            singleLine = true, modifier = Modifier.fillMaxWidth()
         )
+        Spacer(Modifier.height(8.dp))
+        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Checkbox(checked = useCookies, onCheckedChange = { useCookies = it })
+            Spacer(Modifier.width(8.dp))
+            Text("Use cookies (HttpOnly refresh)")
+        }
 
         Spacer(Modifier.height(12.dp))
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
-                onClick = {
-                    scope.launch {
-                        runCatching {
-                            val resp: AuthResponseDto = client.post(LOGIN_PATH) {
-                                contentType(ContentType.Application.Json)
-                                setBody(AuthRequestDto(phone = phone, password = password))
-                            }.body()
-                            resp
-                        }.onSuccess { resp ->
-                            if (resp.success && resp.accessToken != null && resp.refreshToken != null) {
-                                // сохраняем в TokenManager; expiresAt нет — оставляем null
-                                tokenManager.set(
-                                    TokenPair(
-                                        accessToken = resp.accessToken,
-                                        refreshToken = resp.refreshToken,
-                                        accessExpiresAt = null
-                                    )
+            Button(onClick = {
+                scope.launch {
+                    runCatching {
+                        client.post(START_PHONE) {
+                            contentType(ContentType.Application.Json)
+                            setBody(
+                                StartPhoneRequestDto(
+                                    phoneE164 = phone,
+                                    useCookies = useCookies,
+                                    deviceId = null,
+                                    deviceTitle = deviceTitle
                                 )
-                                log("Login OK. FIO=${resp.fio ?: "—"} PN=${resp.personnelNumber ?: "—"}")
-                                log("Access(short)=${resp.accessToken.take(20)}…")
-                            } else {
-                                log("Login FAIL: ${resp.errorMessage ?: "unknown error"}")
-                            }
-                        }.onFailure { e ->
-                            log("Login EXCEPTION: ${e.message}")
-                        }
+                            )
+                        }.body<StartPhoneResponseDto>()
+                    }.onSuccess { resp ->
+                        // сохраняем ACCESS в TokenManager
+                        val access = resp.accessToken
+                        val refresh = resp.refreshToken ?: "COOKIE" // маркер, если кука
+                        tokenManager.set(TokenPair(
+                            accessToken = access,
+                            refreshToken = refresh,
+                            accessExpiresAt = null // можно распарсить resp.accessTokenExpUtc, если хочешь ensureFresh()
+                        ))
+                        csrf = resp.csrfToken
+                        log("StartPhone OK. user=${resp.employee?.displayName ?: "—"} session=${resp.sessionId ?: "—"}")
+                        log("Access(short)=${access.take(24)}…; cookies=${if (useCookies) "on" else "off"}")
+                        if (useCookies) log("CSRF=${csrf ?: "—"}")
+                    }.onFailure { e ->
+                        log("StartPhone EX: ${e.message}")
                     }
                 }
-            ) { Text("Login") }
+            }) { Text("StartPhone") }
 
-            Button(
-                onClick = {
-                    scope.launch {
-                        // ручной рефреш через TokenManager (внутри вызовет AuthApi.refresh)
-                        val ok = runCatching { tokenManager.refreshAfterUnauthorized() }.getOrElse { false }
-                        log("Refresh: $ok")
+            Button(onClick = {
+                scope.launch {
+                    // ручной refresh по cookie (сервер берёт refresh из HttpOnly cookie)
+                    runCatching {
+                        client.post(REFRESH_COOKIE) {
+                            // отправим CSRF, если сервер требует его на state-changing запросах
+                            csrf?.let { header("X-CSRF", it) }
+                        }.body<RefreshResponseDto>()
+                    }.onSuccess { r ->
+                        tokenManager.set(TokenPair(
+                            accessToken = r.accessToken,
+                            refreshToken = "COOKIE",
+                            accessExpiresAt = null
+                        ))
+                        log("Refresh OK. access(short)=${r.accessToken.take(24)}…")
+                    }.onFailure { e ->
+                        log("Refresh EX: ${e.message}")
                     }
                 }
-            ) { Text("Refresh token") }
+            }) { Text("Refresh (cookie)") }
 
-            Button(
-                onClick = {
-                    scope.launch {
-                        runCatching {
-                            // произвольный GET; если эндпоинт защищён — Ktor подставит Authorization автоматически
-                            client.get(PING_PATH).body<String>()
-                        }.onSuccess { pong ->
-                            log("Ping: $pong")
-                        }.onFailure { e ->
-                            log("Ping EXCEPTION: ${e.message}")
-                        }
+            Button(onClick = {
+                scope.launch {
+                    runCatching {
+                        client.get(PING).body<String>()
+                    }.onSuccess { pong ->
+                        log("Ping: $pong")
+                    }.onFailure { e ->
+                        log("Ping EX: ${e.message}")
                     }
                 }
-            ) { Text("Ping") }
+            }) { Text("Ping") }
         }
 
         Spacer(Modifier.height(16.dp))
-
         Text("Output:")
-
         Box(
-            Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(8.dp)
+            Modifier.weight(1f).fillMaxWidth()
+                .verticalScroll(rememberScrollState()).padding(8.dp)
         ) {
-            Text(
-                text = output.ifBlank { "—" },
-                fontFamily = FontFamily.Monospace
-            )
+            Text(output.ifBlank { "—" }, fontFamily = FontFamily.Monospace)
         }
     }
 }

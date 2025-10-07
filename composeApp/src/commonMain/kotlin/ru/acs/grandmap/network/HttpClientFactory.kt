@@ -1,6 +1,7 @@
 package ru.acs.grandmap.network
 
 import io.ktor.client.HttpClient
+import io.ktor.client.HttpClientConfig
 import io.ktor.client.engine.*
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.auth.Auth
@@ -21,9 +22,10 @@ import ru.acs.grandmap.core.auth.TokenManager
 import ru.acs.grandmap.core.auth.TokenState
 
 expect fun platformEngine(): HttpClientEngineFactory<*>
+expect fun HttpClientConfig<*>.enablePlatformCookies()
 
 fun makeHttpClient(isDebug: Boolean = true, tokenManager: TokenManager? = null): HttpClient = HttpClient(platformEngine()) {
-
+    enablePlatformCookies()
     install(ContentNegotiation) {
         json(
             Json {
@@ -76,7 +78,7 @@ fun makeHttpClient(isDebug: Boolean = true, tokenManager: TokenManager? = null):
                     val base = io.ktor.http.Url(BASE_URL)
                             request.url.host == base.host &&
                             request.url.protocol == base.protocol &&
-                            request.url.encodedPath !in listOf("/auth/login", "/auth/refresh")
+                            request.url.encodedPath !in listOf("/auth/*", "/auth/*")
                 }
             }
         }

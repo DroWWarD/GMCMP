@@ -1,7 +1,6 @@
 package ru.acs.grandmap
 
 import androidx.compose.ui.ExperimentalComposeUiApi
-import androidx.compose.ui.window.CanvasBasedWindow
 import androidx.compose.ui.window.ComposeViewport
 import org.jetbrains.skiko.wasm.onWasmReady
 
@@ -9,7 +8,7 @@ import org.jetbrains.skiko.wasm.onWasmReady
 fun main() {
     // Ждём, пока Skiko загрузит wasm (иначе — пустой экран)
     onWasmReady {
-        // важно: совпадает с id в index.html
+        enableFetchCredentialsInclude()
         ComposeViewport(content = {
             App()
         })
