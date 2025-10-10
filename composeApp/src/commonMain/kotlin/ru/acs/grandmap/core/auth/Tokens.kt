@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import ru.acs.grandmap.data.auth.AuthApi
+import kotlin.concurrent.Volatile
 import kotlin.time.ExperimentalTime
 
 data class TokenPair(
@@ -24,11 +25,22 @@ interface TokenStorage {
     fun write(value: TokenPair?)
 }
 
+interface CsrfStorage {
+    fun read(): String?
+    fun write(value: String?)
+}
+
+//fun interface CsrfProvider { fun current(): String? }
 class TokenManager(
     private val storage: TokenStorage,
     private val api: AuthApi,
     private val skewSeconds: Long = 30,     // анти-дрифт часов при проактивном рефреше
+    private val csrfStorage: CsrfStorage? = null
 ) {
+
+    @Volatile
+    private var csrfInMemory: String? = csrfStorage?.read()
+
     private val _state = MutableStateFlow<TokenState>(
         storage.read()?.let { TokenState.Authorized(it) } ?: TokenState.Unauthenticated
     )
@@ -36,13 +48,31 @@ class TokenManager(
 
     private val mutex = Mutex()
 
-    fun logout() = set(null)
+    fun setCsrf(token: String?) {
+        if (token != null) {
+            csrfInMemory = token
+            csrfStorage?.write(token)
+        }
+    }
+
+    fun clearCsrf() {
+        csrfInMemory = null
+        csrfStorage?.write(null)
+    }
+    fun currentCsrfOrNull(): String? = csrfInMemory
+
+    fun logout() {
+        set(null)
+        clearCsrf()
+    }
+
     fun currentAccessOrNull(): String? =
         (state.value as? TokenState.Authorized)?.pair?.accessToken
 
     fun set(pair: TokenPair?) {
         storage.write(pair)
         _state.value = pair?.let { TokenState.Authorized(it) } ?: TokenState.Unauthenticated
+        setCsrf(null)
     }
 
     /** true если нужно обновлять заранее по expiresAt */
@@ -66,7 +96,28 @@ class TokenManager(
 
     private suspend fun refreshInternal(): Boolean {
         val st = state.value as? TokenState.Authorized ?: return false
-        val newPair = runCatching { api.refresh(st.pair.refreshToken) }.getOrNull() ?: return false
+
+        val newPair = runCatching {
+            if (st.pair.refreshToken == "COOKIE") {
+                // cookie-flow (WASM): сервер возьмёт refresh из HttpOnly cookie,
+                // а мы передадим X-CSRF из некритичного не-HttpOnly cookie
+                val r = api.refreshViaCookie(csrf = currentCsrfOrNull())
+                TokenPair(
+                    accessToken = r.accessToken,
+                    refreshToken = "COOKIE",
+                    accessExpiresAt = null
+                )
+            } else {
+                // mobile/desktop: refresh строкой
+                val r = api.refreshViaToken(st.pair.refreshToken)
+                TokenPair(
+                    accessToken = r.accessToken,
+                    refreshToken = r.refreshToken ?: st.pair.refreshToken,
+                    accessExpiresAt = null
+                )
+            }
+        }.getOrNull() ?: return false
+
         set(newPair)
         return true
     }

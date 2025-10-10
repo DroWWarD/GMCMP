@@ -13,6 +13,8 @@ import ru.acs.grandmap.data.auth.AuthRepository
 import ru.acs.grandmap.data.auth.AuthRepositoryImpl
 import ru.acs.grandmap.network.makeHttpClient
 import kotlinx.browser.window
+import ru.acs.grandmap.core.auth.CsrfStorage
+import ru.acs.grandmap.core.auth.WasmCsrfStorage
 
 @Composable
 actual fun WithAppDI(content: @Composable () -> Unit) {
@@ -71,8 +73,17 @@ private object WasmDI {
     val authApi: AuthApi = AuthApi(plain, BASE_URL)
 
     // 4) TokenManager, который будет обновлять токены через authApi
-    val tokenManager: TokenManager = TokenManager(storage = storage, api = authApi)
+    private val csrfStorage: CsrfStorage = WasmCsrfStorage()
+
+    val tokenManager: TokenManager by lazy {
+        TokenManager(
+            storage = storage,
+            api = authApi,
+            csrfStorage = csrfStorage
+        )
+    }
 
     // 5) AUTHeD клиент — со встроенным bearer и привязанным tokenManager
     val authed: HttpClient = makeHttpClient(isDebug = true, tokenManager = tokenManager)
+
 }

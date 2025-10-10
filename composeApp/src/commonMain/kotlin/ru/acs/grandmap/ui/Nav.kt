@@ -47,6 +47,12 @@ fun RootScaffold() {
     val root = rememberRootComponent()
     val stack by root.childStack.subscribeAsState()
 
+    LaunchedEffect(stack.active.configuration) {
+        if (stack.active.configuration == RootComponent.Config.Me) {
+            root.onProfileShown()
+        }
+    }
+
     // Если активен экран авторизации — рисуем его полноэкранно и не показываем бары
     val isAuth = stack.active.instance is RootComponent.Child.Auth
     if (isAuth) {

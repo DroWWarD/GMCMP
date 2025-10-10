@@ -45,11 +45,10 @@ class DefaultAuthComponent(
     componentContext: ComponentContext,
     private val tokenManager: TokenManager,
     private val onAuthorized: (EmployeeDto) -> Unit,
-    private val httpClient: HttpClient,                      // <— ПРОКИНУЛИ
+    private val httpClient: HttpClient,
     private val useCookiesDefault: Boolean = defaultUseCookies()
 ) : AuthComponent, ComponentContext by componentContext {
 
-    private var _csrfToken: String? = null
     private var _otpId: String? = null
     private var _retryAfterSec: Int? = null
     // корректный scope, привязанный к lifecycle компонента
@@ -102,7 +101,6 @@ class DefaultAuthComponent(
             runCatching {
                 httpClient.post(CONFIRM_PHONE_SMS) {
                     contentType(ContentType.Application.Json)
-                    _csrfToken?.let { header("X-CSRF", it) } // если сервер ожидает
                     setBody(
                         ConfirmPhoneSmsRequestDto(
                             otpId = otpId,
@@ -123,7 +121,7 @@ class DefaultAuthComponent(
                         accessExpiresAt = null
                     )
                 )
-                _csrfToken = resp.csrfToken
+                tokenManager.setCsrf(resp.csrfToken)
                 // передаём employee наверх — покажем профиль
                 _state.value = _state.value.copy(loading = false)
                 onAuthorized(resp.employee)

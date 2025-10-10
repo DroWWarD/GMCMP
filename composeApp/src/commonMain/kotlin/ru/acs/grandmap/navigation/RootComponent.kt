@@ -7,11 +7,21 @@ import com.arkivanov.decompose.router.stack.StackNavigation
 import com.arkivanov.decompose.router.stack.bringToFront
 import com.arkivanov.decompose.router.stack.childStack
 import com.arkivanov.decompose.value.Value
+import com.arkivanov.essenty.lifecycle.doOnDestroy
 import io.ktor.client.HttpClient
+import io.ktor.client.plugins.ResponseException
+import io.ktor.http.HttpStatusCode
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import ru.acs.grandmap.ui.Tab
 import kotlinx.serialization.Serializable
+import ru.acs.grandmap.config.BASE_URL
 import ru.acs.grandmap.core.auth.TokenManager
 import ru.acs.grandmap.core.auth.TokenState
+import ru.acs.grandmap.data.auth.AuthApi
 import ru.acs.grandmap.feature.auth.defaultUseCookies
 import ru.acs.grandmap.feature.work.DefaultWorkComponent
 import ru.acs.grandmap.feature.work.WorkComponent
@@ -24,6 +34,8 @@ interface RootComponent {
     val profile: ComposeState<EmployeeDto?>
     fun select(tab: Tab)
     fun reselect(tab: ru.acs.grandmap.ui.Tab)
+
+    fun onProfileShown()
 
     // что хранится в back stack
     @Serializable
@@ -63,6 +75,27 @@ class DefaultRootComponent(
     private val nav = StackNavigation<RootComponent.Config>()
     private val _profile = mutableStateOf<EmployeeDto?>(null)
     override val profile: ComposeState<EmployeeDto?> = _profile
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    init { lifecycle.doOnDestroy { scope.cancel() } }
+
+    private val authApi = AuthApi(httpClient, BASE_URL)
+
+    override fun onProfileShown() {
+        scope.launch {
+            runCatching { authApi.getProfile() }
+                .onSuccess { _profile.value = it }
+                .onFailure { e ->
+                    // если после авто-рефреша всё равно 401 — разлогиниваем
+                    val isUnauthorized = (e as? ResponseException)?.response?.status == HttpStatusCode.Unauthorized
+                    if (isUnauthorized) {
+                        tokenManager.logout()
+                        nav.bringToFront(RootComponent.Config.Auth)
+                    }
+                }
+        }
+    }
+
     override val childStack: Value<ChildStack<RootComponent.Config, RootComponent.Child>> =
         childStack(
             source = nav,

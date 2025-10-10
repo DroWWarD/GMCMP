@@ -53,3 +53,18 @@ data class ConfirmPhoneSmsResponseDto(
     @JsonNames("refreshTokenExpiresAtUtc","RefreshTokenExpiresAtUtc") val refreshTokenExpiresAtUtc: String? = null,
     @JsonNames("csrfToken","CsrfToken") val csrfToken: String? = null
 )
+
+@Serializable
+data class GetTokensRequestDto(
+    @JsonNames("refreshToken","RefreshToken")
+    val refreshToken: String? = null
+)
+
+@Serializable
+data class RefreshResponseDto(
+    @JsonNames("accessToken","AccessToken") val accessToken: String,
+    @JsonNames("accessTokenExpiresAtUtc","AccessTokenExpiresAtUtc") val accessTokenExpUtc: String? = null,
+    @JsonNames("refreshToken","RefreshToken") val refreshToken: String? = null,
+    @JsonNames("refreshTokenExpiresAtUtc","RefreshTokenExpiresAtUtc") val refreshTokenExpUtc: String? = null,
+    @JsonNames("csrfToken","CsrfToken") val csrfToken: String? = null
+)
