@@ -45,7 +45,10 @@ private fun Placeholder(text: String) {
 }
 
 @Composable
-fun RootScaffold() {
+fun RootScaffold(
+    dark: Boolean,
+    onToggleTheme: () -> Unit
+) {
     val root = rememberRootComponent()
     val stack by root.childStack.subscribeAsState()
 
@@ -84,7 +87,7 @@ fun RootScaffold() {
         RootComponent.Config.Chat -> Tab.Chat
         RootComponent.Config.News -> Tab.News
         RootComponent.Config.Game -> Tab.Game
-        RootComponent.Config.Me   -> Tab.Me
+        RootComponent.Config.Me -> Tab.Me
         RootComponent.Config.Auth -> Tab.Work
     }
 
@@ -96,9 +99,19 @@ fun RootScaffold() {
         if (compact) {
             Scaffold(
                 snackbarHost = { SnackbarHost(hostState = snackHost) },
-                topBar = { AppTopBar(title = titleFor(selected)) },
+                topBar = {
+                    AppTopBar(
+                        title = titleFor(selected),
+                        onToggleTheme = onToggleTheme,
+                        dark = dark
+                    )
+                },
                 bottomBar = {
-                    NavigationBar {
+                    NavigationBar(
+                        containerColor = MaterialTheme.colorScheme.secondary,
+                        contentColor = MaterialTheme.colorScheme.onSecondary
+                    )
+                    {
                         tabs.forEach { t ->
                             NavigationBarItem(
                                 selected = (t == selected),
@@ -106,7 +119,20 @@ fun RootScaffold() {
                                     if (t == selected) root.reselect(t) else root.select(t)
                                 },
                                 icon = { Icon(t.icon, contentDescription = t.label) },
-                                label = { Text(t.label) }
+                                label = { Text(t.label) },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                                    selectedTextColor = MaterialTheme.colorScheme.onPrimary,
+                                    unselectedIconColor = MaterialTheme.colorScheme.onPrimary.copy(
+                                        alpha = .55f
+                                    ),
+                                    unselectedTextColor = MaterialTheme.colorScheme.onPrimary.copy(
+                                        alpha = .55f
+                                    ),
+                                    indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(
+                                        alpha = .25f
+                                    )
+                                )
                             )
                         }
                     }
@@ -121,8 +147,11 @@ fun RootScaffold() {
                             is RootComponent.Child.Game -> Placeholder("Здесь будут уведомления")
                             is RootComponent.Child.Me -> {
                                 LaunchedEffect(Unit) { root.onProfileShown() }
-                                ProfileScreen(root.profile.value)
+                                ProfileScreen(
+                                    employee = root.profile.value,
+                                    onLogout = { root.logout() })
                             }
+
                             is RootComponent.Child.Auth -> TODO()
                         }
                     }
@@ -130,18 +159,32 @@ fun RootScaffold() {
             }
         } else {
             Row(Modifier.fillMaxSize()) {
-                NavigationRail {
+
+                NavigationRail(containerColor = MaterialTheme.colorScheme.secondary) {
                     tabs.forEach { t ->
                         NavigationRailItem(
                             selected = (t == selected),
                             onClick = { root.select(t) },
                             icon = { Icon(t.icon, contentDescription = t.label) },
-                            label = { Text(t.label) }
+                            label = { Text(t.label) },
+                            colors = NavigationRailItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                                selectedTextColor = MaterialTheme.colorScheme.onPrimary,
+                                unselectedIconColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = .55f),
+                                unselectedTextColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = .55f),
+                                indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(
+                                    alpha = .25f
+                                )
+                            )
                         )
                     }
                 }
                 Column(Modifier.fillMaxSize()) {
-                    AppTopBar(title = titleFor(selected))
+                    AppTopBar(
+                        title = titleFor(selected),
+                        onToggleTheme = onToggleTheme,
+                        dark = dark
+                    )
                     Divider()
                     Scaffold(
                         snackbarHost = { SnackbarHost(hostState = snackHost) } // тот же state
@@ -157,7 +200,8 @@ fun RootScaffold() {
                                         LaunchedEffect(Unit) { root.onProfileShown() }
                                         ProfileScreen(root.profile.value)
                                     }
-                                    is RootComponent.Child.Auth -> {/*TODO()*/}
+
+                                    is RootComponent.Child.Auth -> TODO()
                                 }
                             }
                         }

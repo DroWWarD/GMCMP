@@ -45,6 +45,7 @@ interface RootComponent {
     fun reselect(tab: Tab)
 
     fun onProfileShown()
+    fun logout()
 
     // что хранится в back stack
     @Serializable
@@ -191,6 +192,18 @@ class DefaultRootComponent(
             else -> Unit
         }
     }
+
+    override fun logout() {
+        scope.launch {
+            // TODO : дернуть эндпоинт на бэке! runCatching { authApi.logout(/*csrf?*/) }
+            // локально чистим всё и уводим на Auth
+            tokenManager.logout()
+            _profile.value = null
+            nav.bringToFront(RootComponent.Config.Auth)
+            _events.tryEmit(UiEvent.Snack("Вы вышли из аккаунта"))
+        }
+    }
+
 }
 
 sealed interface AppError {
