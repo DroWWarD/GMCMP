@@ -9,12 +9,18 @@ import com.arkivanov.decompose.router.stack.childStack
 import com.arkivanov.decompose.value.Value
 import com.arkivanov.essenty.lifecycle.doOnDestroy
 import io.ktor.client.HttpClient
+import io.ktor.client.network.sockets.ConnectTimeoutException
+import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.plugins.ResponseException
 import io.ktor.http.HttpStatusCode
+import io.ktor.util.network.UnresolvedAddressException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import ru.acs.grandmap.ui.Tab
 import kotlinx.serialization.Serializable
@@ -26,14 +32,17 @@ import ru.acs.grandmap.feature.auth.defaultUseCookies
 import ru.acs.grandmap.feature.work.DefaultWorkComponent
 import ru.acs.grandmap.feature.work.WorkComponent
 import ru.acs.grandmap.feature.auth.dto.*
+import ru.acs.grandmap.network.ApiException
 import androidx.compose.runtime.State as ComposeState
+import io.ktor.utils.io.errors.IOException as KtorIOException
 
 
 interface RootComponent {
     val childStack: Value<ChildStack<Config, Child>>
     val profile: ComposeState<EmployeeDto?>
+    val events: SharedFlow<UiEvent>
     fun select(tab: Tab)
-    fun reselect(tab: ru.acs.grandmap.ui.Tab)
+    fun reselect(tab: Tab)
 
     fun onProfileShown()
 
@@ -42,14 +51,19 @@ interface RootComponent {
     sealed class Config {
         @Serializable
         data object Auth : Config()
+
         @Serializable
         data object Work : Config()
+
         @Serializable
         data object Chat : Config()
+
         @Serializable
         data object News : Config()
+
         @Serializable
         data object Game : Config()
+
         @Serializable
         data object Me : Config()
     }
@@ -65,6 +79,10 @@ interface RootComponent {
     }
 }
 
+sealed interface UiEvent {
+    data class Snack(val text: String) : UiEvent
+}
+
 class DefaultRootComponent(
     componentContext: ComponentContext,
     private val tokenManager: TokenManager,
@@ -77,20 +95,42 @@ class DefaultRootComponent(
     override val profile: ComposeState<EmployeeDto?> = _profile
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    init { lifecycle.doOnDestroy { scope.cancel() } }
+
+    init {
+        lifecycle.doOnDestroy { scope.cancel() }
+        scope.launch {
+            tokenManager.state.collect { st ->
+                if (st is TokenState.Unauthenticated) {
+                    _profile.value = null
+                    nav.bringToFront(RootComponent.Config.Auth)
+                }
+            }
+        }
+    }
+
+    private val _events = MutableSharedFlow<UiEvent>(extraBufferCapacity = 1)
+    override val events: SharedFlow<UiEvent> = _events.asSharedFlow()
+
+    private fun showSnack(text: String) {
+        _events.tryEmit(UiEvent.Snack(text))
+    }
 
     private val authApi = AuthApi(httpClient, BASE_URL)
 
     override fun onProfileShown() {
         scope.launch {
             runCatching { authApi.getProfile() }
-                .onSuccess { _profile.value = it }
-                .onFailure { e ->
-                    // если после авто-рефреша всё равно 401 — разлогиниваем
-                    val isUnauthorized = (e as? ResponseException)?.response?.status == HttpStatusCode.Unauthorized
-                    if (isUnauthorized) {
-                        tokenManager.logout()
-                        nav.bringToFront(RootComponent.Config.Auth)
+                .onSuccess { emp ->
+                    _profile.value = emp
+                }
+                .onFailure { err ->
+                    when (val e = err.toAppError()) {
+                        AppError.Unauthorized -> { /* logout уже сделан, экран сам сменится */
+                        }
+
+                        is AppError.Http -> showSnack(e.message ?: "Ошибка ${e.code}")
+                        is AppError.Network -> showSnack("Нет сети")
+                        is AppError.Unknown -> showSnack("Что-то пошло не так")
                     }
                 }
         }
@@ -123,11 +163,12 @@ class DefaultRootComponent(
                 }
             )
         )
+
         RootComponent.Config.Work -> RootComponent.Child.Work(DefaultWorkComponent(ctx))
         RootComponent.Config.Chat -> RootComponent.Child.Chat
         RootComponent.Config.News -> RootComponent.Child.News
         RootComponent.Config.Game -> RootComponent.Child.Game
-        RootComponent.Config.Me   -> RootComponent.Child.Me
+        RootComponent.Config.Me -> RootComponent.Child.Me
     }
 
     override fun select(tab: Tab) {
@@ -150,4 +191,29 @@ class DefaultRootComponent(
             else -> Unit
         }
     }
+}
+
+sealed interface AppError {
+    data class Http(val code: Int, val message: String?) : AppError
+    data class Network(val message: String?) : AppError
+    data class Unknown(val message: String?) : AppError
+    object Unauthorized : AppError
+}
+
+fun Throwable.toAppError(): AppError = when (this) {
+    is ApiException ->
+        if (status == HttpStatusCode.Unauthorized)
+            AppError.Unauthorized
+        else
+            AppError.Http(code = status.value, message = rawBody ?: message)
+
+    // Кроссплатформенная I/O ошибка Ktor
+    is KtorIOException -> AppError.Network(message ?: "Сетевая ошибка")
+
+    // Полезные частные случаи (не обязательно, но удобно)
+    is HttpRequestTimeoutException -> AppError.Network("Таймаут запроса")
+    is ConnectTimeoutException -> AppError.Network("Таймаут соединения")
+    is UnresolvedAddressException -> AppError.Network("Сервер недоступен")
+
+    else -> AppError.Unknown(message ?: "Неизвестная ошибка")
 }

@@ -15,18 +15,20 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.VideogameAsset
 import com.arkivanov.decompose.extensions.compose.stack.Children
 import com.arkivanov.decompose.extensions.compose.subscribeAsState
+import kotlinx.coroutines.flow.collectLatest
 import ru.acs.grandmap.feature.auth.AuthScreen
 import ru.acs.grandmap.feature.profile.ProfileScreen
 import ru.acs.grandmap.feature.work.WorkContent
 import ru.acs.grandmap.navigation.RootComponent
+import ru.acs.grandmap.navigation.UiEvent
 import ru.acs.grandmap.navigation.rememberRootComponent
 
 sealed class Tab(val route: String, val label: String, val icon: ImageVector) {
-    data object Me    : Tab("me",    "Профиль",      Icons.Filled.Person)
-    data object Work  : Tab("work",  "Функции",      Icons.Filled.CardTravel)
-    data object Chat  : Tab("chat",  "Чат",          Icons.AutoMirrored.Filled.Chat)
-    data object News  : Tab("news",  "Новости",      Icons.Filled.Newspaper)
-    data object Game  : Tab("game",  "Игры",         Icons.Filled.VideogameAsset)
+    data object Me : Tab("me", "Профиль", Icons.Filled.Person)
+    data object Work : Tab("work", "Функции", Icons.Filled.CardTravel)
+    data object Chat : Tab("chat", "Чат", Icons.AutoMirrored.Filled.Chat)
+    data object News : Tab("news", "Новости", Icons.Filled.Newspaper)
+    data object Game : Tab("game", "Игры", Icons.Filled.VideogameAsset)
 }
 
 private fun titleFor(tab: Tab) = when (tab) {
@@ -34,7 +36,7 @@ private fun titleFor(tab: Tab) = when (tab) {
     Tab.Chat -> "Чат"
     Tab.News -> "Новости"
     Tab.Game -> "Уведомления"
-    Tab.Me   -> "Профиль"
+    Tab.Me -> "Профиль"
 }
 
 @Composable
@@ -46,6 +48,16 @@ private fun Placeholder(text: String) {
 fun RootScaffold() {
     val root = rememberRootComponent()
     val stack by root.childStack.subscribeAsState()
+
+    val snackHost = remember { SnackbarHostState() }
+
+    LaunchedEffect(root) {
+        root.events.collectLatest { ev ->
+            when (ev) {
+                is UiEvent.Snack -> snackHost.showSnackbar(ev.text)
+            }
+        }
+    }
 
     LaunchedEffect(stack.active.configuration) {
         if (stack.active.configuration == RootComponent.Config.Me) {
@@ -73,7 +85,7 @@ fun RootScaffold() {
         RootComponent.Config.News -> Tab.News
         RootComponent.Config.Game -> Tab.Game
         RootComponent.Config.Me   -> Tab.Me
-        RootComponent.Config.Auth -> Tab.Work // сюда не попадём из-за ветки isAuth
+        RootComponent.Config.Auth -> Tab.Work
     }
 
     val tabs = remember { listOf(Tab.Me, Tab.Work, Tab.Chat, Tab.News, Tab.Game) }
@@ -83,6 +95,7 @@ fun RootScaffold() {
 
         if (compact) {
             Scaffold(
+                snackbarHost = { SnackbarHost(hostState = snackHost) },
                 topBar = { AppTopBar(title = titleFor(selected)) },
                 bottomBar = {
                     NavigationBar {
@@ -106,7 +119,10 @@ fun RootScaffold() {
                             is RootComponent.Child.Chat -> Placeholder("Здесь будут чаты")
                             is RootComponent.Child.News -> Placeholder("Здесь будут новости")
                             is RootComponent.Child.Game -> Placeholder("Здесь будут уведомления")
-                            is RootComponent.Child.Me   -> ProfileScreen(root.profile.value)
+                            is RootComponent.Child.Me -> {
+                                LaunchedEffect(Unit) { root.onProfileShown() }
+                                ProfileScreen(root.profile.value)
+                            }
                             is RootComponent.Child.Auth -> TODO()
                         }
                     }
@@ -127,15 +143,22 @@ fun RootScaffold() {
                 Column(Modifier.fillMaxSize()) {
                     AppTopBar(title = titleFor(selected))
                     Divider()
-                    Box(Modifier.fillMaxSize()) {
-                        Children(stack) { child ->
-                            when (val inst = child.instance) {
-                                is RootComponent.Child.Work -> WorkContent(inst.component)
-                                is RootComponent.Child.Chat -> Placeholder("Здесь будут чаты")
-                                is RootComponent.Child.News -> Placeholder("Здесь будут новости")
-                                is RootComponent.Child.Game -> Placeholder("Здесь будут уведомления")
-                                is RootComponent.Child.Me   -> ProfileScreen(root.profile.value)
-                                is RootComponent.Child.Auth -> TODO()
+                    Scaffold(
+                        snackbarHost = { SnackbarHost(hostState = snackHost) } // тот же state
+                    ) { paddings ->
+                        Box(Modifier.fillMaxSize()) {
+                            Children(stack) { child ->
+                                when (val inst = child.instance) {
+                                    is RootComponent.Child.Work -> WorkContent(inst.component)
+                                    is RootComponent.Child.Chat -> Placeholder("Здесь будут чаты")
+                                    is RootComponent.Child.News -> Placeholder("Здесь будут новости")
+                                    is RootComponent.Child.Game -> Placeholder("Здесь будут уведомления")
+                                    is RootComponent.Child.Me -> {
+                                        LaunchedEffect(Unit) { root.onProfileShown() }
+                                        ProfileScreen(root.profile.value)
+                                    }
+                                    is RootComponent.Child.Auth -> {/*TODO()*/}
+                                }
                             }
                         }
                     }
