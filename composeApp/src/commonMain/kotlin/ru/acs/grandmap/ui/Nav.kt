@@ -73,7 +73,7 @@ fun RootScaffold(
     if (isAuth) {
         Children(stack) { child ->
             when (val inst = child.instance) {
-                is RootComponent.Child.Auth -> AuthScreen(inst.component)
+                is RootComponent.Child.Auth -> AuthScreen(inst.component, dark, onToggleTheme)
 
                 else -> {}
             }
@@ -129,7 +129,7 @@ fun RootScaffold(
                                     unselectedTextColor = MaterialTheme.colorScheme.onPrimary.copy(
                                         alpha = .55f
                                     ),
-                                    indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(
+                                    indicatorColor = MaterialTheme.colorScheme.onPrimary.copy(
                                         alpha = .25f
                                     )
                                 )
@@ -141,17 +141,16 @@ fun RootScaffold(
                 Box(Modifier.fillMaxSize().padding(paddings)) {
                     Children(stack) { child ->
                         when (val inst = child.instance) {
-                            is RootComponent.Child.Work -> WorkContent(inst.component)
-                            is RootComponent.Child.Chat -> Placeholder("Здесь будут чаты")
-                            is RootComponent.Child.News -> Placeholder("Здесь будут новости")
-                            is RootComponent.Child.Game -> Placeholder("Здесь будут уведомления")
                             is RootComponent.Child.Me -> {
                                 LaunchedEffect(Unit) { root.onProfileShown() }
                                 ProfileScreen(
                                     employee = root.profile.value,
                                     onLogout = { root.logout() })
                             }
-
+                            is RootComponent.Child.Work -> WorkContent(inst.component)
+                            is RootComponent.Child.Chat -> Placeholder("Здесь будут чаты")
+                            is RootComponent.Child.News -> Placeholder("Здесь будут новости")
+                            is RootComponent.Child.Game -> Placeholder("Здесь будут игры")
                             is RootComponent.Child.Auth -> TODO()
                         }
                     }

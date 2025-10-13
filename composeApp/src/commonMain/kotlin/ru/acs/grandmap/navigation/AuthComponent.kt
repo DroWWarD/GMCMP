@@ -18,10 +18,12 @@ import ru.acs.grandmap.core.auth.TokenManager
 import ru.acs.grandmap.core.auth.TokenPair
 import ru.acs.grandmap.feature.auth.*
 import ru.acs.grandmap.feature.auth.dto.*
+import kotlin.time.ExperimentalTime
 
 private const val AUTH_BASE             = "/api/Auth"
 private const val START_PHONE_SMS       = "$AUTH_BASE/start-phone-sms"
 private const val CONFIRM_PHONE_SMS     = "$AUTH_BASE/confirm-phone-sms"
+private const val RESEND_COOLDOWN_MS = 60_000L
 
 interface AuthComponent {
     val uiState: State<UiState>
@@ -36,11 +38,14 @@ data class UiState(
     val phone: String = "",
     val code: String = "",
     val loading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val resendUntilMillis: Long? = null,
 ) {
     enum class Step { Phone, Code }
 }
 
+@OptIn(ExperimentalTime::class)
+private fun nowMs(): Long =  kotlin.time.Clock.System.now().toEpochMilliseconds()
 class DefaultAuthComponent(
     componentContext: ComponentContext,
     private val tokenManager: TokenManager,
@@ -51,24 +56,28 @@ class DefaultAuthComponent(
 
     private var _otpId: String? = null
     private var _retryAfterSec: Int? = null
-    // корректный scope, привязанный к lifecycle компонента
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     init { lifecycle.doOnDestroy { scope.cancel() } }
 
     private val _state = mutableStateOf(UiState())
     override val uiState: State<UiState> = _state
-
     override fun onPhoneChange(v: String) { _state.value = _state.value.copy(phone = v, error = null) }
     override fun onCodeChange(v: String) { _state.value = _state.value.copy(code = v, error = null) }
 
     override fun sendSms() {
-        val phone = _state.value.phone.trim()
+        var phone = _state.value.phone.trim()
         if (phone.isEmpty()) {
             _state.value = _state.value.copy(error = "Введите номер телефона")
             return
         }
+        val digits = phone.filter(Char::isDigit)
+        if (!digits.matches(Regex("""^\d{10}$"""))) {
+            _state.value = _state.value.copy(error = "Некорректный номер (нужно 10 цифр)")
+            return
+        }
+        phone = "+7$phone"
         scope.launch {
-            _state.value = _state.value.copy(loading = true, error = null)
+            _state.value = _state.value.copy(loading = true, error = null, resendUntilMillis = nowMs() + RESEND_COOLDOWN_MS)
             runCatching {
                 httpClient.post(START_PHONE_SMS) {
                     contentType(ContentType.Application.Json)
@@ -84,6 +93,8 @@ class DefaultAuthComponent(
             }
         }
     }
+
+
 
     override fun confirmCode() {
         val code = _state.value.code.trim()
@@ -123,9 +134,8 @@ class DefaultAuthComponent(
                 )
                 tokenManager.setCsrf(resp.csrfToken)
                 // передаём employee наверх — покажем профиль
-                _state.value = _state.value.copy(loading = false)
+                _state.value = _state.value.copy(loading = false, code = "", phone = "", step = UiState.Step.Phone)
                 onAuthorized(resp.employee)
-                // если хочешь — возвращай тут resp.employee через коллбэк
             }.onFailure { e ->
                 _state.value = _state.value.copy(loading = false, error = e.message ?: "Неверный код")
             }

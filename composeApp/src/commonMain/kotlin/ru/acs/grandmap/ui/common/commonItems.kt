@@ -22,12 +22,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import org.jetbrains.compose.ui.tooling.preview.Preview
 
 @Composable
 fun MenuWideItem(
     icon: ImageVector,
     title: String,
     onClick: () -> Unit,
+    isLoading: Boolean = false,
     modifier: Modifier = Modifier,
     shape: Shape = RoundedCornerShape(16.dp),
     elevation: CardElevation = CardDefaults.cardElevation(4.dp),
@@ -49,7 +51,7 @@ fun MenuWideItem(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clickable { onClick() },
+            .clickable(!isLoading) { onClick() },
         shape = shape,
         colors = colors,
         border = border,

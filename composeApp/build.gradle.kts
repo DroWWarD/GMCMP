@@ -59,7 +59,7 @@ kotlin {
                 implementation("io.ktor:ktor-client-logging:3.0.1")
                 implementation("io.ktor:ktor-client-websockets:3.0.1")
                 implementation("io.ktor:ktor-client-auth:3.0.1")
-                //Суриализация
+                //Сериализация
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
 
                 //Navigation DECOMPOSE
@@ -72,7 +72,10 @@ kotlin {
                 implementation("com.russhwolf:multiplatform-settings-no-arg:1.1.1")
                 //SHA256
                 implementation("com.squareup.okio:okio:3.9.0")
-
+                //Resources
+                implementation(compose.components.resources)
+                //Date-Time
+                implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.0")
             }
         }
 
@@ -177,4 +180,8 @@ compose.desktop {
             packageVersion = "1.0.0"
         }
     }
+}
+compose.resources {
+    packageOfResClass = "ru.acs.grandmap.composeResources"
+    publicResClass = true
 }
