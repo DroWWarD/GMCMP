@@ -138,22 +138,32 @@ private fun PhoneStep(
     modifier: Modifier
 ) {
     val hideKeyboard = rememberHideKeyboard()
+    val isValid = phone.length == 10 && phone.all { it.isDigit() }
+
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) { // ← применяем модификатор сюда
         OutlinedTextField(
             value = phone,
-            onValueChange = onChange,
+            onValueChange = { new ->
+                // фильтруем ввод: оставляем цифры и ограничиваем 10-ю
+                val digits = new.filter { it.isDigit() }.take(10)
+                if (digits != phone) onChange(digits)
+            },
             shape = RoundedCornerShape(16.dp),
             label = { Text("Введите свой номер (+7...)") },
             leadingIcon = { Icon(imageVector = Icons.Filled.Phone, contentDescription = "PhoneIcon") },
             prefix = { Text("+7") },
             singleLine = true,
             keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Phone,
+                keyboardType = KeyboardType.Number,
                 imeAction = ImeAction.Done
             ),
             keyboardActions = KeyboardActions(
                 onDone = { hideKeyboard() }
             ),
+            isError = phone.isNotEmpty() && !isValid,
+            suffix = {
+                Text("${phone.length}/10")
+            },
             modifier = Modifier.fillMaxWidth()
         )
         if (error != null) {
