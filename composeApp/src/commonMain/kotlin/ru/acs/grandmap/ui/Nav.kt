@@ -110,8 +110,6 @@ fun RootScaffold(
                     NavigationBar(
                         containerColor = MaterialTheme.colorScheme.secondary,
                         contentColor = MaterialTheme.colorScheme.onSecondary,
-                        modifier = Modifier.height(70.dp)
-
                     )
                     {
                         tabs.forEach { t ->
