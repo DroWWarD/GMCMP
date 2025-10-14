@@ -1,8 +1,6 @@
 // ru.acs.grandmap.feature.profile.ProfileScreen.kt
 package ru.acs.grandmap.feature.profile
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -12,11 +10,10 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.AlignmentLine
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import ru.acs.grandmap.feature.auth.dto.EmployeeDto
-import ru.acs.grandmap.ui.common.MenuWideItem
+import ru.acs.grandmap.ui.common.*
 
 sealed interface ProfileAction {
     data object Awards : ProfileAction
@@ -67,53 +64,53 @@ fun ProfileScreen(
 
         // --- Сетка быстрых действий (по два в ряд) ---
         TwoTilesRow(
-            left = { MenuTile(Icons.Filled.EmojiEvents, "Награды", "Достижения",
-                onClick = { onAction(ProfileAction.Awards) }, shape = cardShape, outline = outline) },
-            right = { MenuTile(Icons.Filled.Star, "Отзывы", "Обратная связь",
-                onClick = { onAction(ProfileAction.Reviews) }, shape = cardShape, outline = outline) }
+            left = { MenuItem(Icons.Filled.EmojiEvents, "Награды",
+                onClick = { onAction(ProfileAction.Awards) }, shape = cardShape) },
+            right = { MenuItem(Icons.Filled.Star, "Отзывы",
+                onClick = { onAction(ProfileAction.Reviews) }, shape = cardShape) }
         )
         TwoTilesRow(
-            left = { MenuTile(Icons.Filled.PhotoCamera, "Фото", "", onClick = {
+            left = { MenuItem(Icons.Filled.PhotoCamera, "Фото", onClick = {
                 onAction(ProfileAction.Photos)
-            }, shape = cardShape, outline = outline) },
-            right = { MenuTile(Icons.Filled.CalendarMonth, "Календарь", "",
-                onClick = { onAction(ProfileAction.Calendar) }, shape = cardShape, outline = outline) }
+            }, shape = cardShape) },
+            right = { MenuItem(Icons.Filled.CalendarMonth, "Календарь",
+                onClick = { onAction(ProfileAction.Calendar) }, shape = cardShape) }
         )
         TwoTilesRow(
-            left = { MenuTile(Icons.Filled.Badge, "HR и док-ты", "", onClick = {
+            left = { MenuItem(Icons.Filled.Badge, "HR и док-ты", onClick = {
                 onAction(ProfileAction.HRDocs)
-            }, shape = cardShape, outline = outline) },
-            right = { MenuTile(Icons.Filled.Notifications, "Уведомления", "",
-                onClick = { onAction(ProfileAction.Notifications) }, shape = cardShape, outline = outline) }
+            }, shape = cardShape,) },
+            right = { MenuItem(Icons.Filled.Notifications, "Уведомления",
+                onClick = { onAction(ProfileAction.Notifications) }, shape = cardShape) }
         )
         TwoTilesRow(
-            left = { MenuTile(Icons.Filled.School, "Обучение", "", onClick = {
+            left = { MenuItem(Icons.Filled.School, "Обучение", onClick = {
                 onAction(ProfileAction.Learning)
-            }, shape = cardShape, outline = outline) },
-            right = { MenuTile(Icons.Filled.Search, "WIKI", "", onClick = {
+            }, shape = cardShape) },
+            right = { MenuItem(Icons.Filled.Search, "WIKI", onClick = {
                 onAction(ProfileAction.Wiki)
-            }, shape = cardShape, outline = outline) }
+            }, shape = cardShape) }
         )
 
         // --- Широкие пункты меню ---
-        MenuWideItem(
+        MenuItem(
             icon = Icons.Filled.Settings,
             title = "Настройки",
             onClick = { onAction(ProfileAction.Settings) },
         )
-        MenuWideItem(
+        MenuItem(
             icon = Icons.Filled.HelpOutline,
             title = "Помощь",
             onClick = { onAction(ProfileAction.Help) },
         )
-        MenuWideItem(
+        MenuItem(
             icon = Icons.Filled.PhoneInTalk,
             title = "Обратная связь",
             onClick = { onAction(ProfileAction.Feedback) },
         )
 
         // --- Выход (error-стиль) ---
-        MenuWideItem(
+        MenuItem(
             icon = Icons.Filled.Logout,
             title = "Выйти",
             onClick = onLogout,
@@ -139,60 +136,3 @@ fun ProfileScreen(
         Spacer(Modifier.height(64.dp)) // чтобы не упиралось в нижний бар
     }
 }
-
-/* ---------- UI helpers ---------- */
-
-@Composable
-private fun TwoTilesRow(
-    left: @Composable () -> Unit,
-    right: @Composable () -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Box(Modifier.weight(1f)) { left() }
-        Box(Modifier.weight(1f)) { right() }
-    }
-}
-
-@Composable
-private fun MenuTile(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    title: String,
-    subtitle: String,
-    onClick: () -> Unit,
-    shape: RoundedCornerShape,
-    outline: androidx.compose.ui.graphics.Color
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 92.dp)
-            .clickable { onClick() },
-        shape = shape,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.onSurface
-        ),
-        border = BorderStroke(1.dp, outline.copy(alpha = 0.6f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            if (subtitle.isNotEmpty()) {
-                Text(
-                    subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
-}
-
-

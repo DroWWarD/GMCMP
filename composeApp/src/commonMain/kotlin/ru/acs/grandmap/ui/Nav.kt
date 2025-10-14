@@ -197,7 +197,9 @@ fun RootScaffold(
                                     is RootComponent.Child.Game -> Placeholder("Здесь будут уведомления")
                                     is RootComponent.Child.Me -> {
                                         LaunchedEffect(Unit) { root.onProfileShown() }
-                                        ProfileScreen(root.profile.value)
+                                        ProfileScreen(
+                                            employee = root.profile.value,
+                                            onLogout = { root.logout() })
                                     }
 
                                     is RootComponent.Child.Auth -> TODO()

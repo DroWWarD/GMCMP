@@ -4,16 +4,10 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.HowToReg
-import androidx.compose.material.icons.filled.Inventory
-import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.material.icons.filled.JoinFull
-import androidx.compose.material.icons.filled.JoinRight
-import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Warehouse
 import androidx.compose.material3.*
@@ -21,7 +15,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -32,7 +25,7 @@ import ru.acs.grandmap.navigation.AuthComponent
 import ru.acs.grandmap.navigation.UiState
 import ru.acs.grandmap.composeResources.*
 import ru.acs.grandmap.ui.AppTopBar
-import ru.acs.grandmap.ui.common.MenuWideItem
+import ru.acs.grandmap.ui.common.MenuItem
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,12 +36,10 @@ fun AuthScreen(
 ) {
     val s = component.uiState.value
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val compact = maxWidth < 600.dp
         val scroll = rememberScrollState()
         val logoAcs = if (dark) Res.drawable.logo_acs_on_dark else Res.drawable.logo_acs
         val logoGM = if (dark) Res.drawable.logo_grandmapp_on_dark else Res.drawable.logo_grandmapp
 
-        if (compact) {
             Scaffold(
                 topBar = {
                     AppTopBar(
@@ -64,7 +55,7 @@ fun AuthScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddings)
-                        .verticalScroll(rememberScrollState())
+                        .verticalScroll(scroll)
                         .padding(horizontal = 30.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
 
@@ -94,84 +85,23 @@ fun AuthScreen(
                         )
                     }
                     Spacer(Modifier.height(15.dp))
-                    MenuWideItem(
+                    MenuItem(
                         icon = Icons.Filled.HowToReg,
                         isLoading = s.loading,
                         title = "Присоединиться к команде",
 
-                        onClick = { "TODO" },
-                        showChevron = false
+                        onClick = { /*TODO*/ },
                     )
                     Spacer(Modifier.height(15.dp))
-                    MenuWideItem(
+                    MenuItem(
                         icon = Icons.Filled.Warehouse,
                         isLoading = s.loading,
                         title = "Регистрация поставщика",
-                        onClick = { "TODO" },
-                        showChevron = false
+                        onClick = {/*TODO*/},
                     )
                     Spacer(Modifier.height(25.dp))
                 }
             }
-        } else {
-            Scaffold { paddings ->
-                val scroll = rememberScrollState()
-
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddings)
-                        .verticalScroll(scroll),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(15.dp) // вместо SpaceEvenly
-                ) {
-                    // верхний бар — часть контента и будет прокручиваться
-                    AppTopBar(
-                        title = "",
-                        onToggleTheme = onToggleTheme,
-                        dark = dark
-                    )
-
-                    Spacer(Modifier.height(32.dp))
-                    Image(painterResource(logoAcs), null, Modifier.height(110.dp))
-                    Spacer(Modifier.height(32.dp))
-                    Image(painterResource(logoGM), null, Modifier.height(50.dp))
-
-                    when (s.step) {
-                        UiState.Step.Phone -> PhoneStep(
-                            phone = s.phone, loading = s.loading, error = s.error,
-                            onChange = component::onPhoneChange, onContinue = component::sendSms, modifier = Modifier.padding(100.dp, 0.dp),
-                        )
-                        UiState.Step.Code -> CodeStep(
-                            code = s.code, loading = s.loading, error = s.error,
-                            onChange = component::onCodeChange, onConfirm = component::confirmCode, modifier = Modifier.padding(100.dp, 0.dp)
-                        )
-                    }
-
-                    MenuWideItem(
-                        icon = Icons.Filled.HowToReg,
-                        isLoading = s.loading,
-                        title = "Присоединиться к команде",
-                        onClick = { /* TODO */ },           // не строка!
-                        showChevron = false,
-                        modifier = Modifier.padding(100.dp, 0.dp)
-                    )
-                    MenuWideItem(
-                        icon = Icons.Filled.Warehouse,
-                        isLoading = s.loading,
-                        title = "Регистрация поставщика",
-                        onClick = { /* TODO */ },
-                        showChevron = false,
-                        modifier = Modifier.padding( 100.dp, 0.dp)
-                    )
-
-                    Spacer(Modifier.height(24.dp))
-                    // футер тоже часть контента — прокручивается
-                    AuthFooter()
-                }
-            }
-
-        }
     }
 }
 
@@ -206,7 +136,6 @@ private fun PhoneStep(
             focusedBorderColor = MaterialTheme.colorScheme.primary,
             unfocusedContainerColor = MaterialTheme.colorScheme.surface,
         ),
-        modifier = modifier.fillMaxWidth()
     )
     if (error != null) {
         Spacer(Modifier.height(8.dp)); Text(error, color = MaterialTheme.colorScheme.error)
