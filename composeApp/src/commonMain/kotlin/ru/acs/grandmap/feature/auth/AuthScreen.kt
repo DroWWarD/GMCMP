@@ -10,6 +10,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.HowToReg
+import androidx.compose.material.icons.filled.Password
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Warehouse
 import androidx.compose.material3.*
@@ -176,7 +177,7 @@ private fun PhoneStep(
                 hideKeyboard()
                 onContinue()
             },
-            enabled = !loading
+            enabled = !loading && isValid
         ) {
             Text(if (loading) "Отправка..." else "Продолжить")
         }
@@ -193,11 +194,14 @@ private fun CodeStep(
     modifier: Modifier
 ) {
     val hideKeyboard = rememberHideKeyboard()
+    val isValid = code.length == 4 && code.all { it.isDigit() }
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         OutlinedTextField(
             value = code,
             onValueChange = onChange,
+            shape = RoundedCornerShape(16.dp),
             label = { Text("Код из SMS") },
+            leadingIcon = { Icon(imageVector = Icons.Filled.Password, contentDescription = "CodeIcon") },
             singleLine = true,
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.NumberPassword,
@@ -209,6 +213,10 @@ private fun CodeStep(
                     onConfirm()
                 }
             ),
+            isError = code.isNotEmpty() && !isValid,
+            suffix = {
+                Text("${code.length}/4")
+            },
             modifier = Modifier.fillMaxWidth()
         )
         if (error != null) {
@@ -219,9 +227,9 @@ private fun CodeStep(
         Button(
             onClick = {
                 hideKeyboard()
-                onConfirm() // ← вызывали без скобок — не работало
+                onConfirm()
             },
-            enabled = !loading
+            enabled = !loading&& isValid
         ) {
             Text(if (loading) "Проверяем..." else "Подтвердить")
         }
