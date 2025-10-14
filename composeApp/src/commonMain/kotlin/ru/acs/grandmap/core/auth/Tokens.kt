@@ -30,7 +30,6 @@ interface CsrfStorage {
     fun write(value: String?)
 }
 
-//fun interface CsrfProvider { fun current(): String? }
 class TokenManager(
     private val storage: TokenStorage,
     private val api: AuthApi,

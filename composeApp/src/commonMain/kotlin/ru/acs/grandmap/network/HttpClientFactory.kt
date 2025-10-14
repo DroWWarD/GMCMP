@@ -127,6 +127,15 @@ fun makeHttpClient(isDebug: Boolean = true, tokenManager: TokenManager? = null):
             // Любой non-2xx -> ApiException с вытянутым сообщением
             validateResponse { response ->
                 if (!response.status.isSuccess()) {
+
+                    // Если 401 именно на refresh-вызове, рвём сессию сразу ---
+                    if (response.status == HttpStatusCode.Unauthorized) {
+                        val path = response.request.url.encodedPath.lowercase()
+                        if (path.endsWith("/api/auth/refresh-v2")) {
+                            tokenManager?.logout() // очистит storage и стейт
+                        }
+                    }
+
                     val msg = runCatching { response.body<ProblemDto>() }
                         .mapCatching { it.detail ?: it.title ?: it.error }
                         .getOrElse { runCatching { response.bodyAsText() }.getOrNull() }
@@ -135,13 +144,24 @@ fun makeHttpClient(isDebug: Boolean = true, tokenManager: TokenManager? = null):
             }
 
             // Финальная 401 (после попытки рефреша) -> logout()
+            //  401 может прийти уже как ApiException; обрабатываем оба варианта ---
             handleResponseExceptionWithRequest { cause, _ ->
-                val resp = (cause as? ResponseException)?.response
-                if (resp?.status == HttpStatusCode.Unauthorized) {
-                    tokenManager?.logout()
+                when (cause) {
+                    is ApiException -> {
+                        if (cause.status == HttpStatusCode.Unauthorized) {
+                            tokenManager?.logout()
+                        }
+                    }
+                    is ResponseException -> {
+                        if (cause.response.status == HttpStatusCode.Unauthorized) {
+                            tokenManager?.logout()
+                        }
+                    }
                 }
-                // Приводим к ApiException, если это другой ResponseException
-                if (cause !is ApiException && resp != null && !resp.status.isSuccess()) {
+
+                // Если это был ResponseException (Client/Server), но не ApiException — приведём к ApiException
+                val resp = (cause as? ResponseException)?.response
+                if (resp != null && !resp.status.isSuccess() && cause !is ApiException) {
                     val msg = runCatching { resp.body<ProblemDto>() }
                         .mapCatching { it.detail ?: it.title ?: it.error }
                         .getOrElse { runCatching { resp.bodyAsText() }.getOrNull() }
