@@ -1,6 +1,7 @@
 package ru.acs.grandmap.ui.common
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
@@ -30,7 +32,12 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import ru.acs.grandmap.core.normalizePhone
+import ru.acs.grandmap.core.openDialer
+import ru.acs.grandmap.core.rememberKmpContext
 
 @Composable
 fun MenuItem(
@@ -67,6 +74,7 @@ fun MenuItem(
         elevation = elevation,
         modifier = modifier
             .fillMaxWidth()
+            .widthIn(max = 600.dp)
             .heightIn(min = MinHeight)
             .semantics { role = Role.Button }
     ) {
@@ -114,3 +122,20 @@ fun TwoTilesRow(
     }
 }
 
+@Composable
+fun SupportPhone() {
+    val ctx = rememberKmpContext()
+    val display = "8-800-200-99-74"
+    val raw     = normalizePhone(display)
+
+    Text(
+        text = display,
+        lineHeight = 24.sp,
+        color = Color.White,
+        fontSize = 16.sp,
+        textDecoration = TextDecoration.Underline,
+        modifier = Modifier.clickable {
+            openDialer(ctx, raw)
+        }
+    )
+}

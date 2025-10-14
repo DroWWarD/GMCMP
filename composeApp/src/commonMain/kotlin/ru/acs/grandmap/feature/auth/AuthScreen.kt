@@ -2,6 +2,7 @@ package ru.acs.grandmap.feature.auth
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -18,6 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.jetbrains.compose.resources.painterResource
@@ -26,6 +28,7 @@ import ru.acs.grandmap.navigation.UiState
 import ru.acs.grandmap.composeResources.*
 import ru.acs.grandmap.ui.AppTopBar
 import ru.acs.grandmap.ui.common.MenuItem
+import ru.acs.grandmap.ui.common.SupportPhone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -190,7 +193,7 @@ private fun AuthFooter() {
             Text(
                 "Время работы технической поддержки",
                 color = Color.White,
-                lineHeight = 24.sp,
+                lineHeight = 14.sp,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center
@@ -202,17 +205,11 @@ private fun AuthFooter() {
                 fontSize = 12.sp,
                 textAlign = TextAlign.Center
             )
-            Text(
-                "Обратная связь",
-                lineHeight = 12.sp,
-                color = Color.White,
-                fontSize = 10.sp,
-                textAlign = TextAlign.Center
-            )
+            SupportPhone()
             Text(
                 "© ACS CIS Russia",
                 color = Color.White,
-                lineHeight = 12.sp,
+                lineHeight = 10.sp,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold
             )
