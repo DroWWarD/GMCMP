@@ -201,7 +201,6 @@ class DefaultRootComponent(
             tokenManager.logout()
             _profile.value = null
             nav.bringToFront(RootComponent.Config.Auth)
-            _events.tryEmit(UiEvent.Snack("Вы вышли из аккаунта"))
         }
     }
 
