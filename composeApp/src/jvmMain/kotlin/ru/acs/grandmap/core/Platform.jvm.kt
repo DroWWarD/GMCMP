@@ -7,3 +7,7 @@ actual class KmpContext
 
 actual fun openDialer(ctx: KmpContext, phone: String) { /* no-op */ }
 actual fun isDialerSupported(): Boolean = false
+
+@Composable
+actual fun LockPortrait() {
+}

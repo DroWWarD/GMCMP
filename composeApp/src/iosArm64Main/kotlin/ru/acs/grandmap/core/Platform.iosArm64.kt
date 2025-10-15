@@ -6,6 +6,9 @@ import platform.Foundation.NSURL
 import platform.UIKit.UIApplication
 import platform.darwin.dispatch_async
 import platform.darwin.dispatch_get_main_queue
+import androidx.compose.runtime.DisposableEffect
+import platform.Foundation.NSNotificationCenter
+import platform.Foundation.NSString
 
 actual class KmpContext
 
@@ -31,3 +34,22 @@ actual fun openDialer(ctx: KmpContext, phone: String) {
 }
 
 actual fun isDialerSupported(): Boolean = true
+
+private const val LOCK   = "GRANDMAPP_LOCK_PORTRAIT"
+private const val UNLOCK = "GRANDMAPP_UNLOCK_ORIENTATION"
+
+@Composable
+actual fun LockPortrait() {
+    DisposableEffect(Unit) {
+        NSNotificationCenter.defaultCenter.postNotificationName(
+            aName = LOCK,
+            `object` = null
+        )
+        onDispose {
+            NSNotificationCenter.defaultCenter.postNotificationName(
+                aName = UNLOCK,
+                `object` = null
+            )
+        }
+    }
+}

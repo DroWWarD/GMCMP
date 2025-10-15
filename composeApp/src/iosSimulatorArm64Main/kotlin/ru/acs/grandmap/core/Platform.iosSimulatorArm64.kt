@@ -16,3 +16,7 @@ actual fun openDialer(ctx: KmpContext, phone: String) {
 }
 
 actual fun isDialerSupported(): Boolean = true
+
+@Composable
+actual fun LockPortrait() {
+}

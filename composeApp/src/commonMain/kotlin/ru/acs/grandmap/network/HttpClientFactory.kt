@@ -21,6 +21,9 @@ import io.ktor.http.Url
 import io.ktor.http.encodedPath
 import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
+import io.ktor.http.HttpHeaders
+import io.ktor.client.statement.*
+import io.ktor.http.contentType
 import kotlinx.serialization.json.Json
 import ru.acs.grandmap.config.BASE_URL
 import io.ktor.http.takeFrom
@@ -65,7 +68,7 @@ fun makeHttpClient(isDebug: Boolean = true, tokenManager: TokenManager? = null):
         }
         install(Logging) {
             logger = Logger.SIMPLE
-            level = if (isDebug) LogLevel.INFO else LogLevel.NONE
+            level = if (isDebug) LogLevel.BODY else LogLevel.NONE
         }
         defaultRequest {
             if (BASE_URL.isNotBlank()) {
@@ -127,19 +130,20 @@ fun makeHttpClient(isDebug: Boolean = true, tokenManager: TokenManager? = null):
             // Любой non-2xx -> ApiException с вытянутым сообщением
             validateResponse { response ->
                 if (!response.status.isSuccess()) {
-
-                    // Если 401 именно на refresh-вызове, рвём сессию сразу ---
+                    // если 401 на refresh — сразу разлогиниваем
                     if (response.status == HttpStatusCode.Unauthorized) {
                         val path = response.request.url.encodedPath.lowercase()
                         if (path.endsWith("/api/auth/refresh-v2")) {
-                            tokenManager?.logout() // очистит storage и стейт
+                            tokenManager?.logout()
                         }
                     }
 
-                    val msg = runCatching { response.body<ProblemDto>() }
-                        .mapCatching { it.detail ?: it.title ?: it.error }
-                        .getOrElse { runCatching { response.bodyAsText() }.getOrNull() }
-                    throw ApiException(response.status, msg, msg)
+                    // безопасное сообщение
+                    val uiMsg = response.problemTextOrNull()
+                        ?: defaultUiMessage(response.status)
+
+                    // НЕ прокидываем raw HTML в message
+                    throw ApiException(response.status, rawBody = null, message = uiMsg)
                 }
             }
 
@@ -151,11 +155,18 @@ fun makeHttpClient(isDebug: Boolean = true, tokenManager: TokenManager? = null):
                         if (cause.status == HttpStatusCode.Unauthorized) {
                             tokenManager?.logout()
                         }
+                        // уже user-friendly, дальше просто пробрасываем
+                        return@handleResponseExceptionWithRequest
                     }
                     is ResponseException -> {
                         if (cause.response.status == HttpStatusCode.Unauthorized) {
                             tokenManager?.logout()
                         }
+                        // приведём к ApiException с безопасным текстом
+                        val resp = cause.response
+                        val uiMsg = runCatching { resp.problemTextOrNull() }.getOrNull()
+                            ?: defaultUiMessage(resp.status)
+                        throw ApiException(resp.status, rawBody = null, message = uiMsg)
                     }
                 }
 
@@ -171,3 +182,28 @@ fun makeHttpClient(isDebug: Boolean = true, tokenManager: TokenManager? = null):
         }
 
     }
+
+// хелпер: это JSON?
+private fun HttpResponse.isJson(): Boolean {
+    val ct = this.contentType() ?: return false
+    return ContentType.Application.Json.match(ct) ||
+            (ct.contentType == "application" && ct.contentSubtype == "problem+json")
+}
+
+// если JSON — вытащим поле detail/title/error; иначе null
+private suspend fun HttpResponse.problemTextOrNull(): String? =
+    runCatching { if (isJson()) this.body<ProblemDto>() else null }.getOrNull()
+        ?.let { it.detail ?: it.title ?: it.error }
+
+// дефолтные user-friendly сообщения
+private fun defaultUiMessage(status: HttpStatusCode): String = when (status) {
+    HttpStatusCode.Unauthorized   -> "Сессия истекла. Войдите заново."
+    HttpStatusCode.Forbidden      -> "Нет доступа."
+    HttpStatusCode.BadRequest     -> "Некорректные данные."
+    HttpStatusCode.NotFound       -> "Не найдено."
+    HttpStatusCode.RequestTimeout -> "Таймаут запроса. Проверьте сеть."
+    HttpStatusCode.InternalServerError,
+    HttpStatusCode.ServiceUnavailable,
+    HttpStatusCode.GatewayTimeout -> "Сервер недоступен. Попробуйте позже."
+    else -> "Ошибка ${status.value}"
+}

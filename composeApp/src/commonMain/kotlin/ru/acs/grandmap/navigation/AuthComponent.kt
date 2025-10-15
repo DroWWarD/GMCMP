@@ -20,17 +20,17 @@ import ru.acs.grandmap.feature.auth.*
 import ru.acs.grandmap.feature.auth.dto.*
 import kotlin.time.ExperimentalTime
 
-private const val AUTH_BASE             = "/api/Auth"
-private const val START_PHONE_SMS       = "$AUTH_BASE/start-phone-sms"
-private const val CONFIRM_PHONE_SMS     = "$AUTH_BASE/confirm-phone-sms"
-private const val RESEND_COOLDOWN_MS = 60_000L
+private const val AUTH_BASE         = "/api/Auth"
+private const val START_PHONE_SMS   = "$AUTH_BASE/start-phone-sms"
+private const val CONFIRM_PHONE_SMS = "$AUTH_BASE/confirm-phone-sms"
 
 interface AuthComponent {
     val uiState: State<UiState>
     fun onPhoneChange(v: String)
     fun onCodeChange(v: String)
-    fun sendSms()
+    fun sendSms()         // начальная и повторная отправка
     fun confirmCode()
+    fun backToPhone()     // вернуться к вводу номера
 }
 
 data class UiState(
@@ -39,13 +39,13 @@ data class UiState(
     val code: String = "",
     val loading: Boolean = false,
     val error: String? = null,
-    val resendUntilMillis: Long? = null,
 ) {
     enum class Step { Phone, Code }
 }
 
 @OptIn(ExperimentalTime::class)
-private fun nowMs(): Long =  kotlin.time.Clock.System.now().toEpochMilliseconds()
+private fun nowMs(): Long = kotlin.time.Clock.System.now().toEpochMilliseconds()
+
 class DefaultAuthComponent(
     componentContext: ComponentContext,
     private val tokenManager: TokenManager,
@@ -56,14 +56,29 @@ class DefaultAuthComponent(
 
     private var _otpId: String? = null
     private var _retryAfterSec: Int? = null
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     init { lifecycle.doOnDestroy { scope.cancel() } }
 
     private val _state = mutableStateOf(UiState())
     override val uiState: State<UiState> = _state
+
     override fun onPhoneChange(v: String) { _state.value = _state.value.copy(phone = v, error = null) }
     override fun onCodeChange(v: String) { _state.value = _state.value.copy(code = v, error = null) }
 
+    /** Вернуться на шаг ввода номера */
+    override fun backToPhone() {
+        _otpId = null
+        _retryAfterSec = null
+        _state.value = _state.value.copy(
+            step = UiState.Step.Phone,
+            code = "",
+            error = null,
+            loading = false
+        )
+    }
+
+    /** Начальная/повторная отправка SMS. Проверяет кулдаун и сохраняет отметку. */
     override fun sendSms() {
         var phone = _state.value.phone.trim()
         if (phone.isEmpty()) {
@@ -75,9 +90,21 @@ class DefaultAuthComponent(
             _state.value = _state.value.copy(error = "Некорректный номер (нужно 10 цифр)")
             return
         }
-        phone = "+7$phone"
+
+        val phoneKey = "7$digits"
+        val left = smsRemainingSeconds(phoneKey)
+        if (left > 0) {
+            _state.value = _state.value.copy(
+                // остаёмся на шаге телефона, показываем понятный текст
+                step = UiState.Step.Phone,
+                error = "СМС отправлено. Повторно через ${formatMmSs(left)}"
+            )
+            return
+        }
+
+        phone = "+7$digits"
         scope.launch {
-            _state.value = _state.value.copy(loading = true, error = null, resendUntilMillis = nowMs() + RESEND_COOLDOWN_MS)
+            _state.value = _state.value.copy(loading = true, error = null)
             runCatching {
                 httpClient.post(START_PHONE_SMS) {
                     contentType(ContentType.Application.Json)
@@ -86,15 +113,16 @@ class DefaultAuthComponent(
             }.onSuccess { resp ->
                 _otpId = resp.otpId
                 _retryAfterSec = resp.retryAfterSec
-                // csrf обычно не приходит на этом шаге, но если будет — сохраним
-                _state.value = _state.value.copy(step = UiState.Step.Code, loading = false)
+                val cd = (resp.retryAfterSec ?: 60).toLong()
+                // ← кулдаун фиксируем ТОЛЬКО на успехе
+                smsMarkSent(phoneKey, cooldownSec = cd)
+                _state.value = _state.value.copy(step = UiState.Step.Code, loading = false, error = null)
             }.onFailure { e ->
-                _state.value = _state.value.copy(loading = false, error = e.message ?: "Ошибка")
+                // ← остаёмся на Step.Phone и показываем ошибку
+                _state.value = _state.value.copy(loading = false, error = e.message ?: "Ошибка отправки СМС")
             }
         }
     }
-
-
 
     override fun confirmCode() {
         val code = _state.value.code.trim()
@@ -133,8 +161,17 @@ class DefaultAuthComponent(
                     )
                 )
                 tokenManager.setCsrf(resp.csrfToken)
-                // передаём employee наверх — покажем профиль
-                _state.value = _state.value.copy(loading = false, code = "", phone = "", step = UiState.Step.Phone)
+
+                // очистим локальное состояние шага
+                _otpId = null
+                _retryAfterSec = null
+                _state.value = _state.value.copy(
+                    loading = false,
+                    code = "",
+                    phone = "",
+                    step = UiState.Step.Phone,
+                    error = null
+                )
                 onAuthorized(resp.employee)
             }.onFailure { e ->
                 _state.value = _state.value.copy(loading = false, error = e.message ?: "Неверный код")

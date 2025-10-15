@@ -1,8 +1,10 @@
 package ru.acs.grandmap.feature.auth
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -13,8 +15,11 @@ import androidx.compose.material.icons.filled.HowToReg
 import androidx.compose.material.icons.filled.Password
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Warehouse
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -28,6 +33,7 @@ import org.jetbrains.compose.resources.painterResource
 import ru.acs.grandmap.navigation.AuthComponent
 import ru.acs.grandmap.navigation.UiState
 import ru.acs.grandmap.composeResources.*
+import ru.acs.grandmap.core.LockPortrait
 import ru.acs.grandmap.core.dismissKeyboardOnTap
 import ru.acs.grandmap.core.rememberHideKeyboard
 import ru.acs.grandmap.ui.AppTopBar
@@ -41,24 +47,24 @@ fun AuthScreen(
     dark: Boolean,
     onToggleTheme: () -> Unit,
 ) {
+    LockPortrait()
     val s = component.uiState.value
 
-    // ВАЖНО: убрали .imePadding() отсюда.
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .dismissKeyboardOnTap() // тап по фону скрывает клавиатуру (iOS в т.ч.)
+            .dismissKeyboardOnTap()
     ) {
         val scroll = rememberScrollState()
         val logoAcs = if (dark) Res.drawable.logo_acs_on_dark else Res.drawable.logo_acs
-        val logoGM  = if (dark) Res.drawable.logo_grandmapp_on_dark else Res.drawable.logo_grandmapp
+        val logoGM = if (dark) Res.drawable.logo_grandmapp_on_dark else Res.drawable.logo_grandmapp
 
         Scaffold(
             topBar = {
                 AppTopBar(title = "", onToggleTheme = onToggleTheme, dark = dark)
             },
-            contentWindowInsets = WindowInsets(0.dp), // сами управляем инсетами
-            bottomBar = { AuthFooter() }             // футер без imePadding — уедет под IME
+            contentWindowInsets = WindowInsets(0.dp),
+            bottomBar = { AuthFooter() }
         ) { paddings ->
             Column(
                 verticalArrangement = Arrangement.SpaceEvenly,
@@ -67,7 +73,7 @@ fun AuthScreen(
                     .padding(paddings)
                     .verticalScroll(scroll)
                     .padding(horizontal = 30.dp)
-                    .dismissKeyboardOnTap(),        // можно оставить и тут
+                    .dismissKeyboardOnTap(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Spacer(Modifier.height(50.dp))
@@ -84,45 +90,38 @@ fun AuthScreen(
                 )
                 Spacer(Modifier.height(25.dp))
 
-                // imePadding применяем ТОЛЬКО к секции формы,
-                // чтобы она вместе с кнопкой поднималась над клавиатурой.
                 when (s.step) {
                     UiState.Step.Phone -> PhoneStep(
                         phone = s.phone,
                         loading = s.loading,
                         error = s.error,
                         onChange = component::onPhoneChange,
-                        onContinue = component::sendSms,
+                        onContinue = {
+                            component.sendSms()
+                        },
+                        state = s,
                         modifier = Modifier
                             .fillMaxWidth()
                             .imePadding()
                     )
+
                     UiState.Step.Code -> CodeStep(
                         code = s.code,
                         loading = s.loading,
                         error = s.error,
                         onChange = component::onCodeChange,
                         onConfirm = component::confirmCode,
+                        onResend = {
+                            component.sendSms()
+                        },
+                        onEditPhone = { component.backToPhone() },
+                        phone = s.phone,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .imePadding()
+                            .imePadding(),
                     )
                 }
 
-                Spacer(Modifier.height(15.dp))
-                MenuItem(
-                    icon = Icons.Filled.HowToReg,
-                    isLoading = s.loading,
-                    title = "Присоединиться к команде",
-                    onClick = { /* TODO */ },
-                )
-                Spacer(Modifier.height(15.dp))
-                MenuItem(
-                    icon = Icons.Filled.Warehouse,
-                    isLoading = s.loading,
-                    title = "Регистрация поставщика",
-                    onClick = { /* TODO */ },
-                )
                 Spacer(Modifier.height(25.dp))
             }
         }
@@ -136,51 +135,71 @@ private fun PhoneStep(
     error: String?,
     onChange: (String) -> Unit,
     onContinue: () -> Unit,
+    state: UiState,
     modifier: Modifier
 ) {
     val hideKeyboard = rememberHideKeyboard()
     val isValid = phone.length == 10 && phone.all { it.isDigit() }
+    val phoneKey = "7$phone"
+    val remaining by rememberSmsRemainingTimer(phoneKey)
 
-    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) { // ← применяем модификатор сюда
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         OutlinedTextField(
             value = phone,
             onValueChange = { new ->
-                // фильтруем ввод: оставляем цифры и ограничиваем 10-ю
-                val digits = new.filter { it.isDigit() }.take(10)
+                val digits = new.filter(Char::isDigit).take(10)
                 if (digits != phone) onChange(digits)
             },
             shape = RoundedCornerShape(16.dp),
             label = { Text("Введите свой номер (+7...)") },
-            leadingIcon = { Icon(imageVector = Icons.Filled.Phone, contentDescription = "PhoneIcon") },
+            leadingIcon = { Icon(Icons.Filled.Phone, contentDescription = "PhoneIcon") },
             prefix = { Text("+7") },
             singleLine = true,
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Number,
-                imeAction = ImeAction.Done
-            ),
-            keyboardActions = KeyboardActions(
-                onDone = { hideKeyboard() }
-            ),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { hideKeyboard() }),
             isError = phone.isNotEmpty() && !isValid,
-            suffix = {
-                Text("${phone.length}/10")
-            },
+            suffix = { Text("${phone.length}/10") },
             modifier = Modifier.fillMaxWidth()
         )
+
         if (error != null) {
             Spacer(Modifier.height(8.dp))
             Text(error, color = MaterialTheme.colorScheme.error)
         }
+
         Spacer(Modifier.height(16.dp))
+
         Button(
             onClick = {
                 hideKeyboard()
-                onContinue()
+                onContinue() // без smsMarkSent — отправка решается в компоненте
             },
-            enabled = !loading && isValid
+            enabled = !loading && isValid && remaining == 0L
         ) {
-            Text(if (loading) "Отправка..." else "Продолжить")
+            Text(
+                when {
+                    loading       -> "Отправка..."
+                    !isValid      -> "Продолжить"
+                    remaining==0L -> "Продолжить"
+                    else          -> "Повторно через ${formatMmSs(remaining)}"
+                }
+            )
         }
+
+        Spacer(Modifier.height(15.dp))
+        MenuItem(
+            icon = Icons.Filled.HowToReg,
+            isLoading = state.loading,
+            title = "Присоединиться к команде",
+            onClick = { /* TODO */ },
+        )
+        Spacer(Modifier.height(15.dp))
+        MenuItem(
+            icon = Icons.Filled.Warehouse,
+            isLoading = state.loading,
+            title = "Регистрация поставщика",
+            onClick = { /* TODO */ },
+        )
     }
 }
 
@@ -191,47 +210,115 @@ private fun CodeStep(
     error: String?,
     onChange: (String) -> Unit,
     onConfirm: () -> Unit,
+    onResend: () -> Unit,
+    onEditPhone: () -> Unit,
+    phone: String,
     modifier: Modifier
 ) {
     val hideKeyboard = rememberHideKeyboard()
     val isValid = code.length == 4 && code.all { it.isDigit() }
+    val phoneKey = "7$phone"
+    val remaining by rememberSmsRemainingTimer(phoneKey)
+
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         OutlinedTextField(
             value = code,
             onValueChange = onChange,
             shape = RoundedCornerShape(16.dp),
-            label = { Text("Код из SMS") },
+            label = { Text("Код из SMS +7${phone}") },
             leadingIcon = { Icon(imageVector = Icons.Filled.Password, contentDescription = "CodeIcon") },
             singleLine = true,
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.NumberPassword,
                 imeAction = ImeAction.Done
             ),
-            keyboardActions = KeyboardActions(
-                onDone = {
-                    hideKeyboard()
-                    onConfirm()
-                }
-            ),
+            keyboardActions = KeyboardActions(onDone = { hideKeyboard(); onConfirm() }),
             isError = code.isNotEmpty() && !isValid,
-            suffix = {
-                Text("${code.length}/4")
-            },
+            suffix = { Text("${code.length}/4") },
             modifier = Modifier.fillMaxWidth()
         )
+
         if (error != null) {
             Spacer(Modifier.height(8.dp))
             Text(error, color = MaterialTheme.colorScheme.error)
         }
+
         Spacer(Modifier.height(16.dp))
-        Button(
-            onClick = {
-                hideKeyboard()
-                onConfirm()
-            },
-            enabled = !loading&& isValid
+
+        // Линия действий: [✎]  [  Подтвердить  ]  [↻/таймер]
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
         ) {
-            Text(if (loading) "Проверяем..." else "Подтвердить")
+            // --- слева: изменить номер (корпоративный outlined) ---
+            val editEnabled = !loading
+            val editBorder = if (editEnabled)
+                MaterialTheme.colorScheme.primary
+            else
+                MaterialTheme.colorScheme.outline
+
+            OutlinedIconButton(
+                onClick = { hideKeyboard(); onEditPhone() },
+                enabled = editEnabled,
+                modifier = Modifier.size(56.dp), // чуть крупнее — приятней попадать
+                colors = IconButtonDefaults.outlinedIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor   = MaterialTheme.colorScheme.primary,
+                    disabledContentColor = MaterialTheme.colorScheme.outline
+                ),
+                border = BorderStroke(1.dp, editBorder)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Edit,
+                    contentDescription = "Изменить номер"
+                    // tint не нужен — берётся из colors.contentColor
+                )
+            }
+
+            Spacer(Modifier.width(12.dp))
+
+            // --- центр: Подтвердить (как было) ---
+            Button(
+                onClick = { hideKeyboard(); onConfirm() },
+                enabled = !loading && isValid,
+//                modifier = Modifier.weight(1f)
+            ) {
+                Text(if (loading) "Проверяем..." else "Подтвердить")
+            }
+
+            Spacer(Modifier.width(12.dp))
+
+            // --- справа: повторная отправка (тональный, корпоративный) ---
+            val resendEnabled = !loading && remaining == 0L
+            val tonalColors = IconButtonDefaults.filledTonalIconButtonColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor   = MaterialTheme.colorScheme.onPrimaryContainer,
+                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                disabledContentColor   = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            if (remaining == 0L) {
+                FilledTonalIconButton(
+                    onClick = { hideKeyboard(); onResend() },
+                    enabled = resendEnabled,
+                    colors = tonalColors,
+                    modifier = Modifier.size(56.dp)
+                ) {
+                    Icon(Icons.Filled.Refresh, contentDescription = "Отправить повторно")
+                }
+            } else {
+                BadgedBox(badge = { Badge { Text(formatMmSs(remaining)) } }) {
+                    FilledTonalIconButton(
+                        onClick = { /* disabled */ },
+                        enabled = false,
+                        colors = tonalColors,
+                        modifier = Modifier.size(56.dp)
+                    ) {
+                        Icon(Icons.Filled.Refresh, contentDescription = null)
+                    }
+                }
+            }
         }
     }
 }
@@ -242,7 +329,7 @@ private fun AuthFooter() {
         modifier = Modifier
             .fillMaxWidth()
             .background(Color(0xFF0D496F))
-            .windowInsetsPadding(WindowInsets.navigationBars), // только системные бары, НЕ IME
+            .windowInsetsPadding(WindowInsets.navigationBars),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(

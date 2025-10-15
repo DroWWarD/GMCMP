@@ -12,3 +12,5 @@ expect fun isDialerSupported(): Boolean
 
 fun normalizePhone(phone: String): String =
     phone.filter { it.isDigit() || it == '+' }
+
+@Composable expect fun LockPortrait()
