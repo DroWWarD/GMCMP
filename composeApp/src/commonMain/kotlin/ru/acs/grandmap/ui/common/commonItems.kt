@@ -73,14 +73,12 @@ fun MenuItem(
         border = border,
         elevation = elevation,
         modifier = modifier
-            .fillMaxWidth()
             .widthIn(max = 600.dp)
             .heightIn(min = MinHeight)
             .semantics { role = Role.Button }
     ) {
         Row(
             modifier = Modifier
-                .fillMaxWidth()
                 .padding(horizontal = HorizontalPad, vertical = VerticalPad),
             verticalAlignment = Alignment.CenterVertically
         ) {

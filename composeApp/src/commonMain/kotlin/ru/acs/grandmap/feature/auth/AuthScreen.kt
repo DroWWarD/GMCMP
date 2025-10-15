@@ -1,5 +1,11 @@
 package ru.acs.grandmap.feature.auth
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -27,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.jetbrains.compose.resources.painterResource
@@ -67,7 +74,7 @@ fun AuthScreen(
             bottomBar = { AuthFooter() }
         ) { paddings ->
             Column(
-                verticalArrangement = Arrangement.SpaceEvenly,
+                verticalArrangement = Arrangement.spacedBy(25.dp),
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddings)
@@ -76,20 +83,18 @@ fun AuthScreen(
                     .dismissKeyboardOnTap(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Spacer(Modifier.height(50.dp))
+                Spacer(Modifier.height(25.dp))
                 Image(
                     painter = painterResource(logoAcs),
                     contentDescription = null,
                     modifier = Modifier.height(110.dp)
                 )
-                Spacer(Modifier.height(50.dp))
+                Spacer(Modifier.height(5.dp))
                 Image(
                     painter = painterResource(logoGM),
                     contentDescription = null,
                     modifier = Modifier.height(50.dp)
                 )
-                Spacer(Modifier.height(25.dp))
-
                 when (s.step) {
                     UiState.Step.Phone -> PhoneStep(
                         phone = s.phone,
@@ -99,7 +104,6 @@ fun AuthScreen(
                         onContinue = {
                             component.sendSms()
                         },
-                        state = s,
                         modifier = Modifier
                             .fillMaxWidth()
                             .imePadding()
@@ -121,8 +125,27 @@ fun AuthScreen(
                             .imePadding(),
                     )
                 }
-
-                Spacer(Modifier.height(25.dp))
+                AnimatedVisibility(
+                    visible = s.step == UiState.Step.Phone,
+                    enter = fadeIn() + slideInVertically { it / 3 },
+                    exit = fadeOut() + slideOutVertically { it / 3 }
+                ) {
+                    Column {
+                        MenuItem(
+                            icon = Icons.Filled.HowToReg,
+                            isLoading = s.loading,
+                            title = "Присоединиться к команде",
+                            onClick = { /* TODO */ },
+                        )
+                        Spacer(Modifier.height(15.dp))
+                        MenuItem(
+                            icon = Icons.Filled.Warehouse,
+                            isLoading = s.loading,
+                            title = "Регистрация поставщика",
+                            onClick = { /* TODO */ },
+                        )
+                    }
+                }
             }
         }
     }
@@ -135,7 +158,6 @@ private fun PhoneStep(
     error: String?,
     onChange: (String) -> Unit,
     onContinue: () -> Unit,
-    state: UiState,
     modifier: Modifier
 ) {
     val hideKeyboard = rememberHideKeyboard()
@@ -143,7 +165,10 @@ private fun PhoneStep(
     val phoneKey = "7$phone"
     val remaining by rememberSmsRemainingTimer(phoneKey)
 
-    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        modifier = modifier.animateContentSize(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
         OutlinedTextField(
             value = phone,
             onValueChange = { new ->
@@ -151,55 +176,50 @@ private fun PhoneStep(
                 if (digits != phone) onChange(digits)
             },
             shape = RoundedCornerShape(16.dp),
-            label = { Text("Введите свой номер (+7...)") },
+            label = {
+                Text(
+                    "Введите свой номер...",
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis
+                )
+            },
             leadingIcon = { Icon(Icons.Filled.Phone, contentDescription = "PhoneIcon") },
             prefix = { Text("+7") },
             singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Number,
+                imeAction = ImeAction.Done
+            ),
             keyboardActions = KeyboardActions(onDone = { hideKeyboard() }),
             isError = phone.isNotEmpty() && !isValid,
             suffix = { Text("${phone.length}/10") },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .animateContentSize(),
+            supportingText = {
+                AnimatedVisibility(visible = error != null) {
+                    Text(error ?: "", color = MaterialTheme.colorScheme.error)
+                }
+            }
         )
-
-        if (error != null) {
-            Spacer(Modifier.height(8.dp))
-            Text(error, color = MaterialTheme.colorScheme.error)
-        }
-
         Spacer(Modifier.height(16.dp))
 
         Button(
             onClick = {
                 hideKeyboard()
-                onContinue() // без smsMarkSent — отправка решается в компоненте
+                onContinue()
             },
             enabled = !loading && isValid && remaining == 0L
         ) {
             Text(
                 when {
-                    loading       -> "Отправка..."
-                    !isValid      -> "Продолжить"
-                    remaining==0L -> "Продолжить"
-                    else          -> "Повторно через ${formatMmSs(remaining)}"
+                    loading -> "Отправка..."
+                    !isValid -> "Продолжить"
+                    remaining == 0L -> "Продолжить"
+                    else -> "Повторно через ${formatMmSs(remaining)}"
                 }
             )
         }
-
-        Spacer(Modifier.height(15.dp))
-        MenuItem(
-            icon = Icons.Filled.HowToReg,
-            isLoading = state.loading,
-            title = "Присоединиться к команде",
-            onClick = { /* TODO */ },
-        )
-        Spacer(Modifier.height(15.dp))
-        MenuItem(
-            icon = Icons.Filled.Warehouse,
-            isLoading = state.loading,
-            title = "Регистрация поставщика",
-            onClick = { /* TODO */ },
-        )
     }
 }
 
@@ -223,25 +243,41 @@ private fun CodeStep(
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         OutlinedTextField(
             value = code,
-            onValueChange = onChange,
+            onValueChange = { new ->
+                val digits = new.filter(Char::isDigit).take(4)
+                if (digits != code) onChange(digits)
+            },
             shape = RoundedCornerShape(16.dp),
-            label = { Text("Код из SMS +7${phone}") },
-            leadingIcon = { Icon(imageVector = Icons.Filled.Password, contentDescription = "CodeIcon") },
+            label = {
+                Text(
+                    "Код из SMS +7${phone}",
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis
+                )
+            },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Filled.Password,
+                    contentDescription = "CodeIcon"
+                )
+            },
             singleLine = true,
             keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.NumberPassword,
+                keyboardType = KeyboardType.Number,
                 imeAction = ImeAction.Done
             ),
             keyboardActions = KeyboardActions(onDone = { hideKeyboard(); onConfirm() }),
             isError = code.isNotEmpty() && !isValid,
             suffix = { Text("${code.length}/4") },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .animateContentSize(),
+            supportingText = {
+                AnimatedVisibility(visible = error != null) {
+                    Text(error ?: "", color = MaterialTheme.colorScheme.error)
+                }
+            }
         )
-
-        if (error != null) {
-            Spacer(Modifier.height(8.dp))
-            Text(error, color = MaterialTheme.colorScheme.error)
-        }
 
         Spacer(Modifier.height(16.dp))
 
@@ -264,7 +300,7 @@ private fun CodeStep(
                 modifier = Modifier.size(56.dp), // чуть крупнее — приятней попадать
                 colors = IconButtonDefaults.outlinedIconButtonColors(
                     containerColor = MaterialTheme.colorScheme.surface,
-                    contentColor   = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.primary,
                     disabledContentColor = MaterialTheme.colorScheme.outline
                 ),
                 border = BorderStroke(1.dp, editBorder)
@@ -293,9 +329,9 @@ private fun CodeStep(
             val resendEnabled = !loading && remaining == 0L
             val tonalColors = IconButtonDefaults.filledTonalIconButtonColors(
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor   = MaterialTheme.colorScheme.onPrimaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                disabledContentColor   = MaterialTheme.colorScheme.onSurfaceVariant
+                disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             if (remaining == 0L) {
