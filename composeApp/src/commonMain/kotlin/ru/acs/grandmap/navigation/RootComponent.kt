@@ -6,8 +6,11 @@ import com.arkivanov.decompose.router.stack.ChildStack
 import com.arkivanov.decompose.router.stack.StackNavigation
 import com.arkivanov.decompose.router.stack.bringToFront
 import com.arkivanov.decompose.router.stack.childStack
+import com.arkivanov.decompose.router.stack.navigate
 import com.arkivanov.decompose.router.stack.pop
 import com.arkivanov.decompose.value.Value
+import com.arkivanov.decompose.router.stack.replaceAll
+import com.arkivanov.decompose.router.stack.push
 import com.arkivanov.essenty.lifecycle.doOnDestroy
 import io.ktor.client.HttpClient
 import io.ktor.client.network.sockets.ConnectTimeoutException
@@ -102,7 +105,109 @@ class DefaultRootComponent(
 
 ) : RootComponent, ComponentContext by componentContext {
 
+    private val tabStacks = mutableMapOf<Tab, List<RootComponent.Config>>() // стек для каждой вкладки
+    private fun currentRootTabOrNull(): Tab? = when (childStack.value.active.configuration) {
+        RootComponent.Config.Me, RootComponent.Config.Settings, RootComponent.Config.Sessions -> Tab.Me
+        RootComponent.Config.Work -> Tab.Work
+        RootComponent.Config.Chat -> Tab.Chat
+        RootComponent.Config.News -> Tab.News
+        RootComponent.Config.Game -> Tab.Game
+        RootComponent.Config.Auth -> null
+    }
+
+    private fun defaultStackFor(tab: Tab): List<RootComponent.Config> = listOf(
+        when (tab) {
+            Tab.Me   -> RootComponent.Config.Me
+            Tab.Work -> RootComponent.Config.Work
+            Tab.Chat -> RootComponent.Config.Chat
+            Tab.News -> RootComponent.Config.News
+            Tab.Game -> RootComponent.Config.Game
+        }
+    )
+
+    private fun snapshotCurrentStack(): List<RootComponent.Config> =
+        childStack.value.items.map { it.configuration }
+
+    private fun restoreStack(stack: List<RootComponent.Config>) {
+        nav.navigate { stack } // вернём новый список как есть
+    }
+
     private val nav = StackNavigation<RootComponent.Config>()
+
+    private fun rootOf(tab: Tab): RootComponent.Config = when (tab) {
+        Tab.Me   -> RootComponent.Config.Me
+        Tab.Work -> RootComponent.Config.Work
+        Tab.Chat -> RootComponent.Config.Chat
+        Tab.News -> RootComponent.Config.News
+        Tab.Game -> RootComponent.Config.Game
+    }
+
+    private fun tabOf(cfg: RootComponent.Config): Tab? = when (cfg) {
+        RootComponent.Config.Me,
+        RootComponent.Config.Settings,
+        RootComponent.Config.Sessions -> Tab.Me
+        RootComponent.Config.Work     -> Tab.Work
+        RootComponent.Config.Chat     -> Tab.Chat
+        RootComponent.Config.News     -> Tab.News
+        RootComponent.Config.Game     -> Tab.Game
+        RootComponent.Config.Auth     -> null
+    }
+
+    override val childStack: Value<ChildStack<RootComponent.Config, RootComponent.Child>> =
+        childStack(
+            source = nav,
+            serializer = RootComponent.Config.serializer(),
+            initialConfiguration = if (tokenManager.state.value is TokenState.Authorized) RootComponent.Config.Me else RootComponent.Config.Auth,
+            handleBackButton = true,
+            childFactory = ::createChild
+        )
+
+    private var currentTab: Tab =
+        tabOf(childStack.value.active.configuration) ?: Tab.Me
+
+    private val stacksByTab: MutableMap<Tab, List<RootComponent.Config>> = mutableMapOf(
+        Tab.Me   to listOf(RootComponent.Config.Me),
+        Tab.Work to listOf(RootComponent.Config.Work),
+        Tab.Chat to listOf(RootComponent.Config.Chat),
+        Tab.News to listOf(RootComponent.Config.News),
+        Tab.Game to listOf(RootComponent.Config.Game),
+    )
+
+    /** Сохраняем текущий стек (только конфиги) как стек текущей вкладки */
+    private fun snapshotCurrentStackIntoCurrentTab() {
+        val list = childStack.value.items.map { it.configuration }
+        stacksByTab[currentTab] = list
+    }
+
+    /** Применяем стек выбранной вкладки */
+    private fun restoreStackOf(tab: Tab) {
+        val configs = stacksByTab[tab] ?: listOf(rootOf(tab))
+        nav.replaceAll(configs as RootComponent.Config)
+        currentTab = tab
+    }
+
+    private var lastByTab: MutableMap<Tab, RootComponent.Config> = mutableMapOf(
+        Tab.Me   to RootComponent.Config.Me,
+        Tab.Work to RootComponent.Config.Work,
+        Tab.Chat to RootComponent.Config.Chat,
+        Tab.News to RootComponent.Config.News,
+        Tab.Game to RootComponent.Config.Game,
+    )
+
+    private fun rememberTab(cfg: RootComponent.Config) {
+        when (cfg) {
+            RootComponent.Config.Me,
+            RootComponent.Config.Settings,
+            RootComponent.Config.Sessions -> lastByTab[Tab.Me] = cfg
+
+            RootComponent.Config.Work     -> lastByTab[Tab.Work] = cfg
+            RootComponent.Config.Chat     -> lastByTab[Tab.Chat] = cfg
+            RootComponent.Config.News     -> lastByTab[Tab.News] = cfg
+            RootComponent.Config.Game     -> lastByTab[Tab.Game] = cfg
+            RootComponent.Config.Auth     -> Unit
+        }
+    }
+
     private val _profile = mutableStateOf<EmployeeDto?>(null)
     override val profile: ComposeState<EmployeeDto?> = _profile
 
@@ -147,79 +252,108 @@ class DefaultRootComponent(
     }
 
     override fun openSettings() {
-        nav.bringToFront(RootComponent.Config.Settings)
+        // Пушим поверх текущего стека (внутри вкладки Me)
+        nav.push(RootComponent.Config.Settings)
+        // Не обязательно немедленно снэпшотить — снимем при переключении вкладки.
+        // Если хочешь — можешь сразу обновить:
+        stacksByTab[currentTab] = childStack.value.items.map { it.configuration }
+    }
+    fun openSessionsFromSettings() {
+        rememberTab(RootComponent.Config.Sessions)
+        nav.bringToFront(RootComponent.Config.Sessions)
     }
 
-    override val childStack: Value<ChildStack<RootComponent.Config, RootComponent.Child>> =
-        childStack(
-            source = nav,
-            serializer = RootComponent.Config.serializer(),
-            initialConfiguration = if (tokenManager.state.value is TokenState.Authorized) RootComponent.Config.Me else RootComponent.Config.Auth,
-            handleBackButton = true,
-            childFactory = ::createChild
-        )
+    /** Можно ли сделать back ВНУТРИ текущей вкладки? */
+    fun canGoBackInTab(): Boolean = childStack.value.backStack.isNotEmpty()
+
+    /** Back внутри вкладки. Возвращает true, если что-то попнули. */
+    fun backInTab(): Boolean {
+        // Только если мы на рутовой вкладке и в стеке > 1 экрана — поп
+        if (currentRootTabOrNull() != null && childStack.value.items.size > 1) {
+            nav.pop()
+            return true
+        }
+        return false
+    }
 
 
     private fun createChild(
-        cfg: RootComponent.Config, ctx: ComponentContext
+        cfg: RootComponent.Config,
+        ctx: ComponentContext
     ): RootComponent.Child = when (cfg) {
         RootComponent.Config.Auth -> RootComponent.Child.Auth(
             DefaultAuthComponent(
-            componentContext = ctx,
-            tokenManager = tokenManager,
-            httpClient = httpClient,
-            useCookiesDefault = defaultUseCookies(),
-            onAuthorized = { employee ->
-                _profile.value = employee
-                nav.bringToFront(RootComponent.Config.Me)
-            }))
+                componentContext = ctx,
+                tokenManager = tokenManager,
+                httpClient = httpClient,
+                useCookiesDefault = defaultUseCookies(),
+                onAuthorized = { employee ->
+                    // после логина — вкладка Профиль
+                    currentTab = Tab.Me
+                    stacksByTab[Tab.Me] = listOf(RootComponent.Config.Me)
+                    nav.replaceAll(stacksByTab[Tab.Me]!! as RootComponent.Config)
+                }
+            )
+        )
 
         RootComponent.Config.Work -> RootComponent.Child.Work(DefaultWorkComponent(ctx))
         RootComponent.Config.Chat -> RootComponent.Child.Chat
         RootComponent.Config.News -> RootComponent.Child.News
         RootComponent.Config.Game -> RootComponent.Child.Game
-        RootComponent.Config.Me -> RootComponent.Child.Me
+        RootComponent.Config.Me   -> RootComponent.Child.Me
 
         RootComponent.Config.Settings -> RootComponent.Child.Settings(
             ru.acs.grandmap.feature.settings.DefaultSettingsComponent(
                 componentContext = ctx,
-            onBack = { nav.pop() },
-            onOpenSessions = { nav.bringToFront(RootComponent.Config.Sessions) }))
+                onBack = { nav.pop() },
+                onOpenSessions = { openSessionsFromSettings() }
+            )
+        )
 
         RootComponent.Config.Sessions -> RootComponent.Child.Sessions(
             ru.acs.grandmap.feature.sessions.DefaultSessionsComponent(
-            componentContext = ctx,
-            api = ru.acs.grandmap.feature.sessions.SessionsApi(httpClient, tokenManager),
-            onBack = { nav.pop() }))
+                componentContext = ctx,
+                api = ru.acs.grandmap.feature.sessions.SessionsApi(httpClient, tokenManager),
+                onBack = { nav.pop() }
+            )
+        )
     }
 
     override fun select(tab: Tab) {
-        val cfg = when (tab) {
-            Tab.Work -> RootComponent.Config.Work
-            Tab.Chat -> RootComponent.Config.Chat
-            Tab.News -> RootComponent.Config.News
-            Tab.Game -> RootComponent.Config.Game
-            Tab.Me -> RootComponent.Config.Me
+        val currentTab = currentRootTabOrNull()
+
+        // 1) Сохраняем ТЕКУЩУЮ вкладку (только если мы вообще на рутовой вкладке)
+        if (currentTab != null) {
+            tabStacks[currentTab] = snapshotCurrentStack()
         }
-        nav.bringToFront(cfg) // одна инстанс-вкладка, состояние сохраняется
+
+        // 2) Берём нужный стек для целевой вкладки (или дефолтный, если ещё не сохраняли)
+        val target = tabStacks[tab] ?: defaultStackFor(tab)
+
+        // 3) Восстанавливаем его
+        restoreStack(target)
     }
+
 
     override fun reselect(tab: Tab) {
-        when (tab) {
-            Tab.Work -> (childStack.value.active.instance as? RootComponent.Child.Work)?.component?.resetToRoot()
-            // Для других вкладок позже можно сделать свои реакции
-            else -> Unit
+        val currentTab = currentRootTabOrNull()
+        if (currentTab != tab) {
+            // если это не активная вкладка — просто переключимcя на неё
+            select(tab)
+            return
         }
+        // мы уже на нужной вкладке → сбрасываем её стек к корню
+        val root = defaultStackFor(tab)
+        tabStacks[tab] = root
+        restoreStack(root)
     }
 
-    override fun logout() {
-        scope.launch {
-            // TODO : дернуть эндпоинт на бэке! runCatching { authApi.logout(/*csrf?*/) }
-            // локально чистим всё и уводим на Auth
-            tokenManager.logout()
-            _profile.value = null
-            nav.bringToFront(RootComponent.Config.Auth)
-        }
+       override fun logout() {
+        tokenManager.logout()
+        // сбрасываем все стеки
+        stacksByTab.keys.forEach { tab -> stacksByTab[tab] = listOf(rootOf(tab)) }
+        currentTab = Tab.Me
+        nav.replaceAll(listOf(RootComponent.Config.Auth) as RootComponent.Config)
     }
 
 }

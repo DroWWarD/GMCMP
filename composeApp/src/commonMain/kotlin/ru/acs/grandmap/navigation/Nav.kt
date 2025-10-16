@@ -13,9 +13,12 @@ import androidx.compose.material.icons.filled.CardTravel
 import androidx.compose.material.icons.filled.Newspaper
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.VideogameAsset
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.ui.ExperimentalComposeUiApi
 import com.arkivanov.decompose.extensions.compose.stack.Children
 import com.arkivanov.decompose.extensions.compose.subscribeAsState
 import kotlinx.coroutines.flow.collectLatest
+import ru.acs.grandmap.core.BackHandlerCompat
 import ru.acs.grandmap.feature.auth.AuthScreen
 import ru.acs.grandmap.feature.profile.ProfileAction
 import ru.acs.grandmap.feature.profile.ProfileScreen
@@ -32,6 +35,16 @@ sealed class Tab(val route: String, val label: String, val icon: ImageVector) {
     data object Game : Tab("game", "Игры", Icons.Filled.VideogameAsset)
 }
 
+private fun saveKeyOf(cfg: RootComponent.Config): String = when (cfg) {
+    RootComponent.Config.Me       -> "tab:me"
+    RootComponent.Config.Work     -> "tab:work"
+    RootComponent.Config.Chat     -> "tab:chat"
+    RootComponent.Config.News     -> "tab:news"
+    RootComponent.Config.Game     -> "tab:game"
+    RootComponent.Config.Settings -> "screen:settings"
+    RootComponent.Config.Sessions -> "screen:sessions"
+    RootComponent.Config.Auth     -> "screen:auth"
+}
 private fun titleFor(tab: Tab) = when (tab) {
     Tab.Work -> "Главная"
     Tab.Chat -> "Чат"
@@ -45,7 +58,7 @@ private fun Placeholder(text: String) {
     Box(Modifier.fillMaxSize().padding(16.dp)) { Text(text) }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 @Composable
 fun RootScaffold(
     dark: Boolean,
@@ -56,6 +69,13 @@ fun RootScaffold(
 
     val snackHost = remember { SnackbarHostState() }
 
+    BackHandlerCompat(enabled = true) {
+        val popped = (root as? DefaultRootComponent)?.backInTab() ?: false
+        // На корне вкладки ничего не делаем (не закрываем приложение).
+        if (!popped) {
+            // Можно показать снекбар "Вы на главном экране" — по желанию.
+        }
+    }
     LaunchedEffect(root) {
         root.events.collectLatest { ev ->
             when (ev) {
@@ -101,6 +121,8 @@ fun RootScaffold(
     }
 
     val tabs = remember { listOf(Tab.Me, Tab.Work, Tab.Chat, Tab.News, Tab.Game) }
+
+    val tabStateHolder = rememberSaveableStateHolder()
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val compact = maxWidth < 600.dp
@@ -152,26 +174,30 @@ fun RootScaffold(
             ) { paddings ->
                 Box(Modifier.fillMaxSize().padding(paddings)) {
                     Children(stack) { child ->
-                        when (val inst = child.instance) {
-                            is RootComponent.Child.Me -> {
-                                LaunchedEffect(Unit) { root.onProfileShown() }
-                                ProfileScreen(
-                                    employee = root.profile.value,
-                                    onLogout = { root.logout() },
-                                    onAction = { act ->
-                                        if (act is ProfileAction.Settings) {
-                                            root.openSettings()
+                        val saveKey = saveKeyOf(child.configuration)
+                        tabStateHolder.SaveableStateProvider(saveKey) {
+                            when (val inst = child.instance) {
+                                is RootComponent.Child.Me -> {
+                                    LaunchedEffect(Unit) { root.onProfileShown() }
+                                    ProfileScreen(
+                                        employee = root.profile.value,
+                                        onLogout = { root.logout() },
+                                        onAction = { act ->
+                                            if (act is ProfileAction.Settings) {
+                                                (root as DefaultRootComponent).openSettings()
+                                            }
                                         }
-                                    }
-                                )
+                                    )
+                                }
+
+                                is RootComponent.Child.Work -> WorkContent(inst.component)
+                                is RootComponent.Child.Chat -> Placeholder("Здесь будут чаты")
+                                is RootComponent.Child.News -> Placeholder("Здесь будут новости")
+                                is RootComponent.Child.Game -> Placeholder("Здесь будут игры")
+                                is RootComponent.Child.Auth -> {}
+                                is RootComponent.Child.Settings -> SettingsScreen(inst.component)
+                                is RootComponent.Child.Sessions -> SessionsScreen(inst.component)
                             }
-                            is RootComponent.Child.Work -> WorkContent(inst.component)
-                            is RootComponent.Child.Chat -> Placeholder("Здесь будут чаты")
-                            is RootComponent.Child.News -> Placeholder("Здесь будут новости")
-                            is RootComponent.Child.Game -> Placeholder("Здесь будут игры")
-                            is RootComponent.Child.Auth -> {}
-                            is RootComponent.Child.Settings -> SettingsScreen(inst.component)
-                            is RootComponent.Child.Sessions -> SessionsScreen(inst.component)
                         }
                     }
                 }
@@ -212,26 +238,30 @@ fun RootScaffold(
                     ) { paddings ->
                         Box(Modifier.fillMaxSize()) {
                             Children(stack) { child ->
-                                when (val inst = child.instance) {
-                                    is RootComponent.Child.Work -> WorkContent(inst.component)
-                                    is RootComponent.Child.Chat -> Placeholder("Здесь будут чаты")
-                                    is RootComponent.Child.News -> Placeholder("Здесь будут новости")
-                                    is RootComponent.Child.Game -> Placeholder("Здесь будут уведомления")
-                                    is RootComponent.Child.Me       -> {
-                                        LaunchedEffect(Unit) { root.onProfileShown() }
-                                        ProfileScreen(
-                                            employee = root.profile.value,
-                                            onLogout = { root.logout() },
-                                            onAction = { act ->
-                                                if (act is ProfileAction.Settings) {
-                                                    root.openSettings()
+                                val saveKey = saveKeyOf(child.configuration)
+                                tabStateHolder.SaveableStateProvider(saveKey) {
+                                    when (val inst = child.instance) {
+                                        is RootComponent.Child.Work -> WorkContent(inst.component)
+                                        is RootComponent.Child.Chat -> Placeholder("Здесь будут чаты")
+                                        is RootComponent.Child.News -> Placeholder("Здесь будут новости")
+                                        is RootComponent.Child.Game -> Placeholder("Здесь будут уведомления")
+                                        is RootComponent.Child.Me -> {
+                                            LaunchedEffect(Unit) { root.onProfileShown() }
+                                            ProfileScreen(
+                                                employee = root.profile.value,
+                                                onLogout = { root.logout() },
+                                                onAction = { act ->
+                                                    if (act is ProfileAction.Settings) {
+                                                        (root as DefaultRootComponent).openSettings()
+                                                    }
                                                 }
-                                            }
-                                        )
+                                            )
+                                        }
+
+                                        is RootComponent.Child.Auth -> {}
+                                        is RootComponent.Child.Settings -> SettingsScreen(inst.component)
+                                        is RootComponent.Child.Sessions -> SessionsScreen(inst.component)
                                     }
-                                    is RootComponent.Child.Auth     -> {}
-                                    is RootComponent.Child.Settings -> SettingsScreen(inst.component)
-                                    is RootComponent.Child.Sessions -> SessionsScreen(inst.component)
                                 }
                             }
                         }

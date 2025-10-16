@@ -24,6 +24,7 @@ sealed interface ProfileAction {
     data object Notifications : ProfileAction
     data object Learning : ProfileAction
     data object Wiki : ProfileAction
+
     data object Settings : ProfileAction
     data object Help : ProfileAction
     data object Feedback : ProfileAction
