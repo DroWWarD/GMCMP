@@ -1,4 +1,4 @@
-package ru.acs.grandmap.ui
+package ru.acs.grandmap.navigation
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -17,11 +17,12 @@ import com.arkivanov.decompose.extensions.compose.stack.Children
 import com.arkivanov.decompose.extensions.compose.subscribeAsState
 import kotlinx.coroutines.flow.collectLatest
 import ru.acs.grandmap.feature.auth.AuthScreen
+import ru.acs.grandmap.feature.profile.ProfileAction
 import ru.acs.grandmap.feature.profile.ProfileScreen
+import ru.acs.grandmap.feature.sessions.SessionsScreen
+import ru.acs.grandmap.feature.settings.SettingsScreen
 import ru.acs.grandmap.feature.work.WorkContent
-import ru.acs.grandmap.navigation.RootComponent
-import ru.acs.grandmap.navigation.UiEvent
-import ru.acs.grandmap.navigation.rememberRootComponent
+import ru.acs.grandmap.ui.common.AppTopBar
 
 sealed class Tab(val route: String, val label: String, val icon: ImageVector) {
     data object Me : Tab("me", "Профиль", Icons.Filled.Person)
@@ -44,6 +45,7 @@ private fun Placeholder(text: String) {
     Box(Modifier.fillMaxSize().padding(16.dp)) { Text(text) }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RootScaffold(
     dark: Boolean,
@@ -89,6 +91,13 @@ fun RootScaffold(
         RootComponent.Config.Game -> Tab.Game
         RootComponent.Config.Me -> Tab.Me
         RootComponent.Config.Auth -> Tab.Work
+        RootComponent.Config.Sessions -> Tab.Me
+        RootComponent.Config.Settings -> Tab.Me
+    }
+
+    val isDetail = when (stack.active.configuration) {
+        RootComponent.Config.Settings, RootComponent.Config.Sessions -> true
+        else -> false
     }
 
     val tabs = remember { listOf(Tab.Me, Tab.Work, Tab.Chat, Tab.News, Tab.Game) }
@@ -100,11 +109,13 @@ fun RootScaffold(
             Scaffold(
                 snackbarHost = { SnackbarHost(hostState = snackHost) },
                 topBar = {
-                    AppTopBar(
-                        title = titleFor(selected),
-                        onToggleTheme = onToggleTheme,
-                        dark = dark
-                    )
+                    if (!isDetail) {
+                        AppTopBar(
+                            title = titleFor(selected),
+                            onToggleTheme = onToggleTheme,
+                            dark = dark
+                        )
+                    }
                 },
                 bottomBar = {
                     NavigationBar(
@@ -146,13 +157,21 @@ fun RootScaffold(
                                 LaunchedEffect(Unit) { root.onProfileShown() }
                                 ProfileScreen(
                                     employee = root.profile.value,
-                                    onLogout = { root.logout() })
+                                    onLogout = { root.logout() },
+                                    onAction = { act ->
+                                        if (act is ProfileAction.Settings) {
+                                            root.openSettings()
+                                        }
+                                    }
+                                )
                             }
                             is RootComponent.Child.Work -> WorkContent(inst.component)
                             is RootComponent.Child.Chat -> Placeholder("Здесь будут чаты")
                             is RootComponent.Child.News -> Placeholder("Здесь будут новости")
                             is RootComponent.Child.Game -> Placeholder("Здесь будут игры")
-                            is RootComponent.Child.Auth -> TODO()
+                            is RootComponent.Child.Auth -> {}
+                            is RootComponent.Child.Settings -> SettingsScreen(inst.component)
+                            is RootComponent.Child.Sessions -> SessionsScreen(inst.component)
                         }
                     }
                 }
@@ -180,14 +199,16 @@ fun RootScaffold(
                     }
                 }
                 Column(Modifier.fillMaxSize()) {
-                    AppTopBar(
-                        title = titleFor(selected),
-                        onToggleTheme = onToggleTheme,
-                        dark = dark
-                    )
-                    Divider()
+                    if (!isDetail) {
+                        AppTopBar(
+                            title = titleFor(selected),
+                            onToggleTheme = onToggleTheme,
+                            dark = dark
+                        )
+                        Divider()
+                    }
                     Scaffold(
-                        snackbarHost = { SnackbarHost(hostState = snackHost) } // тот же state
+                        snackbarHost = { SnackbarHost(hostState = snackHost) }
                     ) { paddings ->
                         Box(Modifier.fillMaxSize()) {
                             Children(stack) { child ->
@@ -196,14 +217,21 @@ fun RootScaffold(
                                     is RootComponent.Child.Chat -> Placeholder("Здесь будут чаты")
                                     is RootComponent.Child.News -> Placeholder("Здесь будут новости")
                                     is RootComponent.Child.Game -> Placeholder("Здесь будут уведомления")
-                                    is RootComponent.Child.Me -> {
+                                    is RootComponent.Child.Me       -> {
                                         LaunchedEffect(Unit) { root.onProfileShown() }
                                         ProfileScreen(
                                             employee = root.profile.value,
-                                            onLogout = { root.logout() })
+                                            onLogout = { root.logout() },
+                                            onAction = { act ->
+                                                if (act is ProfileAction.Settings) {
+                                                    root.openSettings()
+                                                }
+                                            }
+                                        )
                                     }
-
-                                    is RootComponent.Child.Auth -> TODO()
+                                    is RootComponent.Child.Auth     -> {}
+                                    is RootComponent.Child.Settings -> SettingsScreen(inst.component)
+                                    is RootComponent.Child.Sessions -> SessionsScreen(inst.component)
                                 }
                             }
                         }

@@ -37,13 +37,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.jetbrains.compose.resources.painterResource
-import ru.acs.grandmap.navigation.AuthComponent
-import ru.acs.grandmap.navigation.UiState
 import ru.acs.grandmap.composeResources.*
 import ru.acs.grandmap.core.LockPortrait
 import ru.acs.grandmap.core.dismissKeyboardOnTap
 import ru.acs.grandmap.core.rememberHideKeyboard
-import ru.acs.grandmap.ui.AppTopBar
+import ru.acs.grandmap.ui.common.AppTopBar
 import ru.acs.grandmap.ui.common.MenuItem
 import ru.acs.grandmap.ui.common.SupportPhone
 

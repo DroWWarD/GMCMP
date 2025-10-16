@@ -2,11 +2,10 @@ package ru.acs.grandmap
 
 import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.saveable.rememberSaveable
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
 import ru.acs.grandmap.di.WithAppDI
-import ru.acs.grandmap.ui.RootScaffold
+import ru.acs.grandmap.navigation.RootScaffold
 import ru.acs.grandmap.ui.theme.GrandmAppTheme
 import ru.acs.grandmap.ui.theme.ThemeMode
 import ru.acs.grandmap.ui.theme.ThemePrefs

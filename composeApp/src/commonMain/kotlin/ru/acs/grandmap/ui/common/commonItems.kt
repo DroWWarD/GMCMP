@@ -73,7 +73,7 @@ fun MenuItem(
         border = border,
         elevation = elevation,
         modifier = modifier
-            .widthIn(max = 600.dp)
+            .widthIn(max = 400.dp)
             .heightIn(min = MinHeight)
             .semantics { role = Role.Button }
     ) {

@@ -15,6 +15,7 @@ junit = "4.13.2"
 kotlin = "2.2.20"
 kotlinx-coroutines = "1.10.2"
 datetime = "0.7.1"
+extensionsComposeJetbrains = "2.1.4-compose-experimental"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }

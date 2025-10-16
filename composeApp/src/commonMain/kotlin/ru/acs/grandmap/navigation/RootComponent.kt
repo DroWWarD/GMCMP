@@ -6,15 +6,14 @@ import com.arkivanov.decompose.router.stack.ChildStack
 import com.arkivanov.decompose.router.stack.StackNavigation
 import com.arkivanov.decompose.router.stack.bringToFront
 import com.arkivanov.decompose.router.stack.childStack
+import com.arkivanov.decompose.router.stack.pop
 import com.arkivanov.decompose.value.Value
 import com.arkivanov.essenty.lifecycle.doOnDestroy
 import io.ktor.client.HttpClient
 import io.ktor.client.network.sockets.ConnectTimeoutException
 import io.ktor.client.plugins.HttpRequestTimeoutException
-import io.ktor.client.plugins.ResponseException
 import io.ktor.http.HttpStatusCode
 import io.ktor.util.network.UnresolvedAddressException
-import io.ktor.util.reflect.instanceOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -23,16 +22,19 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
-import ru.acs.grandmap.ui.Tab
 import kotlinx.serialization.Serializable
 import ru.acs.grandmap.config.BASE_URL
 import ru.acs.grandmap.core.auth.TokenManager
 import ru.acs.grandmap.core.auth.TokenState
 import ru.acs.grandmap.data.auth.AuthApi
+import ru.acs.grandmap.feature.auth.AuthComponent
+import ru.acs.grandmap.feature.auth.DefaultAuthComponent
 import ru.acs.grandmap.feature.auth.defaultUseCookies
 import ru.acs.grandmap.feature.work.DefaultWorkComponent
 import ru.acs.grandmap.feature.work.WorkComponent
 import ru.acs.grandmap.feature.auth.dto.*
+import ru.acs.grandmap.feature.sessions.SessionsComponent
+import ru.acs.grandmap.feature.settings.SettingsComponent
 import ru.acs.grandmap.network.ApiException
 import androidx.compose.runtime.State as ComposeState
 import io.ktor.utils.io.errors.IOException as KtorIOException
@@ -46,6 +48,7 @@ interface RootComponent {
     fun reselect(tab: Tab)
 
     fun onProfileShown()
+    fun openSettings()
     fun logout()
 
     // что хранится в back stack
@@ -53,21 +56,20 @@ interface RootComponent {
     sealed class Config {
         @Serializable
         data object Auth : Config()
-
         @Serializable
         data object Work : Config()
-
         @Serializable
         data object Chat : Config()
-
         @Serializable
         data object News : Config()
-
         @Serializable
         data object Game : Config()
-
         @Serializable
         data object Me : Config()
+        @Serializable
+        data object Settings : Config()
+        @Serializable
+        data object Sessions : Config()
     }
 
     @Serializable
@@ -78,6 +80,8 @@ interface RootComponent {
         data object News : Child()
         data object Game : Child()
         data object Me : Child()
+        data class Settings(val component: SettingsComponent) : Child()
+        data class Sessions(val component: SessionsComponent) : Child()
     }
 }
 
@@ -138,6 +142,10 @@ class DefaultRootComponent(
         }
     }
 
+    override fun openSettings() {
+        nav.bringToFront(RootComponent.Config.Settings)
+    }
+
     override val childStack: Value<ChildStack<RootComponent.Config, RootComponent.Child>> =
         childStack(
             source = nav,
@@ -171,6 +179,22 @@ class DefaultRootComponent(
         RootComponent.Config.News -> RootComponent.Child.News
         RootComponent.Config.Game -> RootComponent.Child.Game
         RootComponent.Config.Me -> RootComponent.Child.Me
+
+        RootComponent.Config.Settings -> RootComponent.Child.Settings(
+            ru.acs.grandmap.feature.settings.DefaultSettingsComponent(
+                componentContext = ctx,
+                onBack = { nav.pop() },
+                onOpenSessions = { nav.bringToFront(RootComponent.Config.Sessions) }
+            )
+        )
+
+        RootComponent.Config.Sessions -> RootComponent.Child.Sessions(
+            ru.acs.grandmap.feature.sessions.DefaultSessionsComponent(
+                componentContext = ctx,
+                api = ru.acs.grandmap.feature.sessions.SessionsApi(httpClient, tokenManager),
+                onBack = { nav.pop() }
+            )
+        )
     }
 
     override fun select(tab: Tab) {

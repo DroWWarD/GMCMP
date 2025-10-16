@@ -1,4 +1,4 @@
-package ru.acs.grandmap.navigation
+package ru.acs.grandmap.feature.auth
 
 import androidx.compose.runtime.*
 import com.arkivanov.decompose.ComponentContext
@@ -16,8 +16,9 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import ru.acs.grandmap.core.auth.TokenManager
 import ru.acs.grandmap.core.auth.TokenPair
-import ru.acs.grandmap.feature.auth.*
+import ru.acs.grandmap.core.toUserMessage
 import ru.acs.grandmap.feature.auth.dto.*
+import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 private const val AUTH_BASE         = "/api/Auth"
@@ -44,7 +45,7 @@ data class UiState(
 }
 
 @OptIn(ExperimentalTime::class)
-private fun nowMs(): Long = kotlin.time.Clock.System.now().toEpochMilliseconds()
+private fun nowMs(): Long = Clock.System.now().toEpochMilliseconds()
 
 class DefaultAuthComponent(
     componentContext: ComponentContext,
@@ -119,7 +120,7 @@ class DefaultAuthComponent(
                 _state.value = _state.value.copy(step = UiState.Step.Code, loading = false, error = null)
             }.onFailure { e ->
                 // ← остаёмся на Step.Phone и показываем ошибку
-                _state.value = _state.value.copy(loading = false, error = e.message ?: "Ошибка отправки СМС")
+                _state.value = _state.value.copy(loading = false, error = e.toUserMessage())
             }
         }
     }
@@ -174,7 +175,7 @@ class DefaultAuthComponent(
                 )
                 onAuthorized(resp.employee)
             }.onFailure { e ->
-                _state.value = _state.value.copy(loading = false, error = e.message ?: "Неверный код")
+                _state.value = _state.value.copy(loading = false, error = e.toUserMessage())
             }
         }
     }
