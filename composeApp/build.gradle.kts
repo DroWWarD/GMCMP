@@ -63,7 +63,7 @@ kotlin {
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
 
                 //Navigation DECOMPOSE
-                val decompose = "3.2.0" // подходит для Compose 1.6–1.7
+                val decompose = "3.2.0"
                 implementation("com.arkivanov.decompose:decompose:$decompose")
                 implementation("com.arkivanov.decompose:extensions-compose:$decompose")
                 //Логгирование
@@ -99,6 +99,7 @@ kotlin {
 
                 // Движок для Ktor
                 implementation("io.ktor:ktor-client-okhttp:3.0.1")
+                implementation("com.arkivanov.decompose:extensions-android:3.2.0")
             }
         }
 

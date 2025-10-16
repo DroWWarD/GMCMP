@@ -56,23 +56,29 @@ interface RootComponent {
     sealed class Config {
         @Serializable
         data object Auth : Config()
+
         @Serializable
         data object Work : Config()
+
         @Serializable
         data object Chat : Config()
+
         @Serializable
         data object News : Config()
+
         @Serializable
         data object Game : Config()
+
         @Serializable
         data object Me : Config()
+
         @Serializable
         data object Settings : Config()
+
         @Serializable
         data object Sessions : Config()
     }
 
-    @Serializable
     sealed class Child {
         data class Auth(val component: AuthComponent) : Child()
         data class Work(val component: WorkComponent) : Child()
@@ -125,11 +131,9 @@ class DefaultRootComponent(
 
     override fun onProfileShown() {
         scope.launch {
-            runCatching { authApi.getProfile() }
-                .onSuccess { emp ->
+            runCatching { authApi.getProfile() }.onSuccess { emp ->
                     _profile.value = emp
-                }
-                .onFailure { err ->
+                }.onFailure { err ->
                     when (val e = err.toAppError()) {
                         AppError.Unauthorized -> { /* logout уже сделан, экран сам сменится */
                         }
@@ -150,29 +154,25 @@ class DefaultRootComponent(
         childStack(
             source = nav,
             serializer = RootComponent.Config.serializer(),
-            initialConfiguration = if (tokenManager.state.value is TokenState.Authorized)
-                RootComponent.Config.Me else RootComponent.Config.Auth,
+            initialConfiguration = if (tokenManager.state.value is TokenState.Authorized) RootComponent.Config.Me else RootComponent.Config.Auth,
             handleBackButton = true,
             childFactory = ::createChild
         )
 
 
     private fun createChild(
-        cfg: RootComponent.Config,
-        ctx: ComponentContext
+        cfg: RootComponent.Config, ctx: ComponentContext
     ): RootComponent.Child = when (cfg) {
         RootComponent.Config.Auth -> RootComponent.Child.Auth(
             DefaultAuthComponent(
-                componentContext = ctx,
-                tokenManager = tokenManager,
-                httpClient = httpClient,
-                useCookiesDefault = defaultUseCookies(),
-                onAuthorized = { employee ->
-                    _profile.value = employee
-                    nav.bringToFront(RootComponent.Config.Me)
-                }
-            )
-        )
+            componentContext = ctx,
+            tokenManager = tokenManager,
+            httpClient = httpClient,
+            useCookiesDefault = defaultUseCookies(),
+            onAuthorized = { employee ->
+                _profile.value = employee
+                nav.bringToFront(RootComponent.Config.Me)
+            }))
 
         RootComponent.Config.Work -> RootComponent.Child.Work(DefaultWorkComponent(ctx))
         RootComponent.Config.Chat -> RootComponent.Child.Chat
@@ -183,18 +183,14 @@ class DefaultRootComponent(
         RootComponent.Config.Settings -> RootComponent.Child.Settings(
             ru.acs.grandmap.feature.settings.DefaultSettingsComponent(
                 componentContext = ctx,
-                onBack = { nav.pop() },
-                onOpenSessions = { nav.bringToFront(RootComponent.Config.Sessions) }
-            )
-        )
+            onBack = { nav.pop() },
+            onOpenSessions = { nav.bringToFront(RootComponent.Config.Sessions) }))
 
         RootComponent.Config.Sessions -> RootComponent.Child.Sessions(
             ru.acs.grandmap.feature.sessions.DefaultSessionsComponent(
-                componentContext = ctx,
-                api = ru.acs.grandmap.feature.sessions.SessionsApi(httpClient, tokenManager),
-                onBack = { nav.pop() }
-            )
-        )
+            componentContext = ctx,
+            api = ru.acs.grandmap.feature.sessions.SessionsApi(httpClient, tokenManager),
+            onBack = { nav.pop() }))
     }
 
     override fun select(tab: Tab) {
@@ -210,9 +206,7 @@ class DefaultRootComponent(
 
     override fun reselect(tab: Tab) {
         when (tab) {
-            Tab.Work ->
-                (childStack.value.active.instance as? RootComponent.Child.Work)
-                    ?.component?.resetToRoot()
+            Tab.Work -> (childStack.value.active.instance as? RootComponent.Child.Work)?.component?.resetToRoot()
             // Для других вкладок позже можно сделать свои реакции
             else -> Unit
         }
@@ -238,11 +232,8 @@ sealed interface AppError {
 }
 
 fun Throwable.toAppError(): AppError = when (this) {
-    is ApiException ->
-        if (status == HttpStatusCode.Unauthorized)
-            AppError.Unauthorized
-        else
-            AppError.Http(code = status.value, message = rawBody ?: message)
+    is ApiException -> if (status == HttpStatusCode.Unauthorized) AppError.Unauthorized
+    else AppError.Http(code = status.value, message = rawBody ?: message)
 
     // Кроссплатформенная I/O ошибка Ktor
     is KtorIOException -> AppError.Network(message ?: "Сетевая ошибка")
