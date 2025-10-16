@@ -105,7 +105,9 @@ class DefaultRootComponent(
 
 ) : RootComponent, ComponentContext by componentContext {
 
-    private val tabStacks = mutableMapOf<Tab, List<RootComponent.Config>>() // стек для каждой вкладки
+    private val tabStacks =
+        mutableMapOf<Tab, List<RootComponent.Config>>() // стек для каждой вкладки
+
     private fun currentRootTabOrNull(): Tab? = when (childStack.value.active.configuration) {
         RootComponent.Config.Me, RootComponent.Config.Settings, RootComponent.Config.Sessions -> Tab.Me
         RootComponent.Config.Work -> Tab.Work
@@ -117,7 +119,7 @@ class DefaultRootComponent(
 
     private fun defaultStackFor(tab: Tab): List<RootComponent.Config> = listOf(
         when (tab) {
-            Tab.Me   -> RootComponent.Config.Me
+            Tab.Me -> RootComponent.Config.Me
             Tab.Work -> RootComponent.Config.Work
             Tab.Chat -> RootComponent.Config.Chat
             Tab.News -> RootComponent.Config.News
@@ -135,7 +137,7 @@ class DefaultRootComponent(
     private val nav = StackNavigation<RootComponent.Config>()
 
     private fun rootOf(tab: Tab): RootComponent.Config = when (tab) {
-        Tab.Me   -> RootComponent.Config.Me
+        Tab.Me -> RootComponent.Config.Me
         Tab.Work -> RootComponent.Config.Work
         Tab.Chat -> RootComponent.Config.Chat
         Tab.News -> RootComponent.Config.News
@@ -146,11 +148,12 @@ class DefaultRootComponent(
         RootComponent.Config.Me,
         RootComponent.Config.Settings,
         RootComponent.Config.Sessions -> Tab.Me
-        RootComponent.Config.Work     -> Tab.Work
-        RootComponent.Config.Chat     -> Tab.Chat
-        RootComponent.Config.News     -> Tab.News
-        RootComponent.Config.Game     -> Tab.Game
-        RootComponent.Config.Auth     -> null
+
+        RootComponent.Config.Work -> Tab.Work
+        RootComponent.Config.Chat -> Tab.Chat
+        RootComponent.Config.News -> Tab.News
+        RootComponent.Config.Game -> Tab.Game
+        RootComponent.Config.Auth -> null
     }
 
     override val childStack: Value<ChildStack<RootComponent.Config, RootComponent.Child>> =
@@ -166,7 +169,7 @@ class DefaultRootComponent(
         tabOf(childStack.value.active.configuration) ?: Tab.Me
 
     private val stacksByTab: MutableMap<Tab, List<RootComponent.Config>> = mutableMapOf(
-        Tab.Me   to listOf(RootComponent.Config.Me),
+        Tab.Me to listOf(RootComponent.Config.Me),
         Tab.Work to listOf(RootComponent.Config.Work),
         Tab.Chat to listOf(RootComponent.Config.Chat),
         Tab.News to listOf(RootComponent.Config.News),
@@ -180,14 +183,9 @@ class DefaultRootComponent(
     }
 
     /** Применяем стек выбранной вкладки */
-    private fun restoreStackOf(tab: Tab) {
-        val configs = stacksByTab[tab] ?: listOf(rootOf(tab))
-        nav.replaceAll(configs as RootComponent.Config)
-        currentTab = tab
-    }
 
     private var lastByTab: MutableMap<Tab, RootComponent.Config> = mutableMapOf(
-        Tab.Me   to RootComponent.Config.Me,
+        Tab.Me to RootComponent.Config.Me,
         Tab.Work to RootComponent.Config.Work,
         Tab.Chat to RootComponent.Config.Chat,
         Tab.News to RootComponent.Config.News,
@@ -200,11 +198,11 @@ class DefaultRootComponent(
             RootComponent.Config.Settings,
             RootComponent.Config.Sessions -> lastByTab[Tab.Me] = cfg
 
-            RootComponent.Config.Work     -> lastByTab[Tab.Work] = cfg
-            RootComponent.Config.Chat     -> lastByTab[Tab.Chat] = cfg
-            RootComponent.Config.News     -> lastByTab[Tab.News] = cfg
-            RootComponent.Config.Game     -> lastByTab[Tab.Game] = cfg
-            RootComponent.Config.Auth     -> Unit
+            RootComponent.Config.Work -> lastByTab[Tab.Work] = cfg
+            RootComponent.Config.Chat -> lastByTab[Tab.Chat] = cfg
+            RootComponent.Config.News -> lastByTab[Tab.News] = cfg
+            RootComponent.Config.Game -> lastByTab[Tab.Game] = cfg
+            RootComponent.Config.Auth -> Unit
         }
     }
 
@@ -237,17 +235,17 @@ class DefaultRootComponent(
     override fun onProfileShown() {
         scope.launch {
             runCatching { authApi.getProfile() }.onSuccess { emp ->
-                    _profile.value = emp
-                }.onFailure { err ->
-                    when (val e = err.toAppError()) {
-                        AppError.Unauthorized -> { /* logout уже сделан, экран сам сменится */
-                        }
-
-                        is AppError.Http -> showSnack(e.message ?: "Ошибка ${e.code}")
-                        is AppError.Network -> showSnack("Нет сети")
-                        is AppError.Unknown -> showSnack("Что-то пошло не так")
+                _profile.value = emp
+            }.onFailure { err ->
+                when (val e = err.toAppError()) {
+                    AppError.Unauthorized -> { /* logout уже сделан, экран сам сменится */
                     }
+
+                    is AppError.Http -> showSnack(e.message ?: "Ошибка ${e.code}")
+                    is AppError.Network -> showSnack("Нет сети")
+                    is AppError.Unknown -> showSnack("Что-то пошло не так")
                 }
+            }
         }
     }
 
@@ -258,6 +256,7 @@ class DefaultRootComponent(
         // Если хочешь — можешь сразу обновить:
         stacksByTab[currentTab] = childStack.value.items.map { it.configuration }
     }
+
     fun openSessionsFromSettings() {
         rememberTab(RootComponent.Config.Sessions)
         nav.bringToFront(RootComponent.Config.Sessions)
@@ -288,10 +287,10 @@ class DefaultRootComponent(
                 httpClient = httpClient,
                 useCookiesDefault = defaultUseCookies(),
                 onAuthorized = { employee ->
-                    // после логина — вкладка Профиль
+                    _profile.value = employee
                     currentTab = Tab.Me
-                    stacksByTab[Tab.Me] = listOf(RootComponent.Config.Me)
-                    nav.replaceAll(stacksByTab[Tab.Me]!! as RootComponent.Config)
+                    stacksByTab[Tab.Me] = listOf(RootComponent.Config.Me)  // обновили кэш стека вкладки
+                    nav.replaceAll(RootComponent.Config.Me)                // заменили весь стек одним экраном
                 }
             )
         )
@@ -300,7 +299,7 @@ class DefaultRootComponent(
         RootComponent.Config.Chat -> RootComponent.Child.Chat
         RootComponent.Config.News -> RootComponent.Child.News
         RootComponent.Config.Game -> RootComponent.Child.Game
-        RootComponent.Config.Me   -> RootComponent.Child.Me
+        RootComponent.Config.Me -> RootComponent.Child.Me
 
         RootComponent.Config.Settings -> RootComponent.Child.Settings(
             ru.acs.grandmap.feature.settings.DefaultSettingsComponent(
@@ -321,15 +320,12 @@ class DefaultRootComponent(
 
     override fun select(tab: Tab) {
         val currentTab = currentRootTabOrNull()
-
         // 1) Сохраняем ТЕКУЩУЮ вкладку (только если мы вообще на рутовой вкладке)
         if (currentTab != null) {
             tabStacks[currentTab] = snapshotCurrentStack()
         }
-
         // 2) Берём нужный стек для целевой вкладки (или дефолтный, если ещё не сохраняли)
         val target = tabStacks[tab] ?: defaultStackFor(tab)
-
         // 3) Восстанавливаем его
         restoreStack(target)
     }
@@ -348,12 +344,18 @@ class DefaultRootComponent(
         restoreStack(root)
     }
 
-       override fun logout() {
-        tokenManager.logout()
-        // сбрасываем все стеки
-        stacksByTab.keys.forEach { tab -> stacksByTab[tab] = listOf(rootOf(tab)) }
-        currentTab = Tab.Me
-        nav.replaceAll(listOf(RootComponent.Config.Auth) as RootComponent.Config)
+    override fun logout() {
+        scope.launch {
+            // (по желанию: дернуть API /logout)
+            tokenManager.logout()
+            _profile.value = null
+
+            // обнулим кэши стеков вкладок
+            tabStacks.clear()
+
+            // самый чистый способ — заменить стек одним Auth
+            nav.replaceAll(RootComponent.Config.Auth)
+        }
     }
 
 }
