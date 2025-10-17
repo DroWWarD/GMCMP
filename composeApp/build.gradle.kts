@@ -1,6 +1,8 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSetTree
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -9,6 +11,7 @@ plugins {
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.composeHotReload)
     alias(libs.plugins.kotlinSerialization)
+    alias(libs.plugins.sqlDelight)
 }
 
 kotlin {
@@ -51,7 +54,6 @@ kotlin {
                 implementation(compose.materialIconsExtended)
                 implementation(libs.datetime)
 
-
                 // Ktor (общие)
                 implementation("io.ktor:ktor-client-core:3.0.1")
                 implementation("io.ktor:ktor-client-content-negotiation:3.0.1")
@@ -59,34 +61,36 @@ kotlin {
                 implementation("io.ktor:ktor-client-logging:3.0.1")
                 implementation("io.ktor:ktor-client-websockets:3.0.1")
                 implementation("io.ktor:ktor-client-auth:3.0.1")
-                //Сериализация
+                // Сериализация
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
 
-                //Navigation DECOMPOSE
+                // Navigation DECOMPOSE
                 val decompose = "3.2.0"
                 implementation("com.arkivanov.decompose:decompose:$decompose")
                 implementation("com.arkivanov.decompose:extensions-compose:$decompose")
-                //Логгирование
+
+                // Логгирование
                 implementation("io.github.aakira:napier:2.7.1")
 
                 implementation("com.russhwolf:multiplatform-settings-no-arg:1.1.1")
-                //SHA256
+                // SHA256
                 implementation("com.squareup.okio:okio:3.9.0")
-                //Resources
-                implementation(compose.components.resources)
-                //Date-Time
+                // Date-Time
                 implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.0")
+
             }
         }
 
         val nonWasmMain by creating {
             dependsOn(commonMain)
             dependencies {
-                //KOIN DI
+                // Koin DI
                 implementation("io.insert-koin:koin-core:3.5.6")
                 implementation("io.insert-koin:koin-compose:1.1.5")
 
                 implementation("com.russhwolf:multiplatform-settings-no-arg:1.1.1")
+
+                implementation(libs.bundles.sqldelight.common)
             }
         }
 
@@ -97,9 +101,14 @@ kotlin {
                 implementation(compose.preview)
                 implementation(libs.androidx.activity.compose)
 
-                // Движок для Ktor
+                // Ktor engine
                 implementation("io.ktor:ktor-client-okhttp:3.0.1")
+
+                // Decompose Android extensions
                 implementation("com.arkivanov.decompose:extensions-android:3.2.0")
+
+                // SQLDelight driver
+                implementation(libs.sqldelight.driver.android)
             }
         }
 
@@ -110,26 +119,38 @@ kotlin {
                 implementation(compose.desktop.currentOs)
                 implementation(libs.kotlinx.coroutinesSwing)
 
-                // Движок для Ktor
+                // Ktor engine
                 implementation("io.ktor:ktor-client-okhttp:3.0.1")
+
+                implementation("app.cash.sqldelight:sqlite-driver:2.1.0")
             }
         }
 
-        // === iOS (общий сорссет для iosArm64/iosSimulatorArm64) ===
+        // === iOS ===
         val iosArm64Main by getting {
             dependsOn(nonWasmMain)
-            dependencies { implementation("io.ktor:ktor-client-darwin:3.0.1") }
+            dependencies {
+                implementation("io.ktor:ktor-client-darwin:3.0.1")
+                // SQLDelight native driver
+                implementation(libs.sqldelight.driver.ios)
+            }
         }
         val iosSimulatorArm64Main by getting {
             dependsOn(nonWasmMain)
-            dependencies { implementation("io.ktor:ktor-client-darwin:3.0.1") }
+            dependencies {
+                implementation("io.ktor:ktor-client-darwin:3.0.1")
+                // SQLDelight native driver
+                implementation(libs.sqldelight.driver.ios)
+            }
         }
 
-        // === Wasm JS ===
+        // === Wasm JS === (без SQLDelight!)
         val wasmJsMain by getting {
             dependencies {
-                // Движок для Ktor
                 implementation("io.ktor:ktor-client-js:3.0.1")
+                implementation("app.cash.sqldelight:web-worker-driver:2.1.0")
+                implementation(devNpm("copy-webpack-plugin", "9.1.0"))
+
             }
         }
 
@@ -174,7 +195,6 @@ dependencies {
 compose.desktop {
     application {
         mainClass = "ru.acs.grandmap.MainKt"
-
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "ru.acs.grandmap"
@@ -182,7 +202,17 @@ compose.desktop {
         }
     }
 }
+
 compose.resources {
     packageOfResClass = "ru.acs.grandmap.composeResources"
     publicResClass = true
+}
+
+// Конфигурация SQLDelight: имя БД и пакет для сгенерированных классов
+sqldelight {
+    databases {
+        create("AppDatabase") {
+            packageName.set("ru.acs.grandmap.db")
+        }
+    }
 }
