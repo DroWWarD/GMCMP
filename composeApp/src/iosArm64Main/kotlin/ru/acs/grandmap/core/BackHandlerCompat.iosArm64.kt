@@ -12,22 +12,34 @@ import platform.UIKit.*
 import platform.darwin.NSObject
 
 @Composable
-actual fun BackHandlerCompat(
-    enabled: Boolean,
-    onBack: () -> Unit
-) {
+actual fun BackHandlerCompat(enabled: Boolean, onBack: () -> Unit) {
     DisposableEffect(enabled) {
         if (enabled) {
-            EdgeBackBridge.shared.attach(onBack)
+            EdgeBackManager.attach(onBack)
         } else {
-            EdgeBackBridge.shared.detach()
+            EdgeBackManager.detach()
         }
-        onDispose { EdgeBackBridge.shared.detach() }
+        onDispose { EdgeBackManager.detach() }
+    }
+}
+
+/** Топ-левел менеджер (НЕ ObjC-класс) — можно хранить поля, всё ок */
+private object EdgeBackManager {
+    private var bridge: EdgeBackBridge? = null
+
+    fun attach(onBack: () -> Unit) {
+        if (bridge == null) bridge = EdgeBackBridge()
+        bridge!!.attach(onBack)
+    }
+
+    fun detach() {
+        bridge?.detach()
     }
 }
 
 /**
- * Синглтон-мост, устойчивый к смене окна/сцены и рекомпозициям.
+ * Сам ObjC-класс без companion.
+ * Держит recognizer/окно/колбэк, перевешивает жест при смене key window.
  */
 @ExportObjCClass
 private class EdgeBackBridge : NSObject(), UIGestureRecognizerDelegateProtocol {
@@ -36,14 +48,10 @@ private class EdgeBackBridge : NSObject(), UIGestureRecognizerDelegateProtocol {
     private var window: UIWindow? = null
     private var onBack: (() -> Unit)? = null
 
-    companion object {
-        val shared = EdgeBackBridge()
-    }
-
     @OptIn(ExperimentalForeignApi::class)
     fun attach(callback: () -> Unit) {
         onBack = callback
-        // Подписываемся на смену keyWindow — на iOS 13+ это частая история
+        // следим за сменой key window
         NSNotificationCenter.defaultCenter.addObserver(
             this,
             selector = NSSelectorFromString("onWindowChange"),
@@ -61,18 +69,21 @@ private class EdgeBackBridge : NSObject(), UIGestureRecognizerDelegateProtocol {
 
     @ObjCAction
     fun onWindowChange() {
-        // keyWindow сменилось — перевесим распознаватель
         installOnCurrentWindow()
+    }
+
+    private fun currentWindow(): UIWindow? {
+        val app = UIApplication.sharedApplication
+        return app.keyWindow ?: (app.windows.firstOrNull() as? UIWindow)
     }
 
     @OptIn(ExperimentalForeignApi::class)
     private fun installOnCurrentWindow() {
-        val app = UIApplication.sharedApplication
-        val newWindow: UIWindow? = app.keyWindow ?: (app.windows.firstOrNull() as? UIWindow)
+        val newWindow = currentWindow() ?: return
         if (newWindow == window && recognizer != null) return
 
         removeFromWindow()
-        window = newWindow ?: return
+        window = newWindow
 
         val r = UIScreenEdgePanGestureRecognizer(
             target = this,
@@ -87,42 +98,34 @@ private class EdgeBackBridge : NSObject(), UIGestureRecognizerDelegateProtocol {
     }
 
     private fun removeFromWindow() {
-        recognizer?.let { rec ->
-            window?.removeGestureRecognizer(rec)
-        }
+        recognizer?.let { window?.removeGestureRecognizer(it) }
         recognizer = null
         window = null
     }
 
-    // Основная логика: реагируем только на законченный свайп справа-налево с достаточным dx
+    // Основной хэндлер свайпа
     @OptIn(ExperimentalForeignApi::class)
     @ObjCAction
     fun handle(recognizer: UIScreenEdgePanGestureRecognizer) {
-        val view = recognizer.view ?: return
-        val translation = recognizer.translationInView(view)
-        val dx = translation.useContents { x }
-        when (recognizer.state) {
-            UIGestureRecognizerStateEnded -> {
-                // Порог смещения 24pt, можно подстроить
-                if (dx > 24.0) onBack?.invoke()
-            }
-            else -> Unit
+        val v = recognizer.view ?: return
+        val dx = recognizer.translationInView(v).useContents { x }
+        if (recognizer.state == UIGestureRecognizerStateEnded && dx > 24.0) {
+            onBack?.invoke()
         }
     }
 
-    // Разрешаем одновременно распознавать с жестами Compose (скролл и т.п.)
+    // Разрешаем одновременное распознавание (чтобы не конфликтовало со скроллами/кликами)
     override fun gestureRecognizer(
         gestureRecognizer: UIGestureRecognizer,
         shouldRecognizeSimultaneouslyWithGestureRecognizer: UIGestureRecognizer
     ): Boolean = true
 
-    // Не начинаем, если движение влево или старт не у левого края (подстраховка)
+    // Подстраховка: не начинаем, если жест влево
     @OptIn(ExperimentalForeignApi::class)
     override fun gestureRecognizerShouldBegin(gestureRecognizer: UIGestureRecognizer): Boolean {
-        val rec = gestureRecognizer as? UIScreenEdgePanGestureRecognizer ?: return true
-        val v = rec.view ?: return true
-        val tr = rec.translationInView(v)
-        val dx = tr.useContents { x }
+        val r = gestureRecognizer as? UIScreenEdgePanGestureRecognizer ?: return true
+        val v = r.view ?: return true
+        val dx = r.translationInView(v).useContents { x }
         return dx >= 0.0
     }
 }
