@@ -20,7 +20,6 @@ import com.arkivanov.decompose.extensions.compose.subscribeAsState
 import kotlinx.coroutines.flow.collectLatest
 import ru.acs.grandmap.core.BackHandlerCompat
 import ru.acs.grandmap.feature.auth.AuthScreen
-import ru.acs.grandmap.feature.profile.ProfileAction
 import ru.acs.grandmap.feature.profile.ProfileScreen
 import ru.acs.grandmap.feature.sessions.SessionsScreen
 import ru.acs.grandmap.feature.settings.SettingsScreen
@@ -83,20 +82,12 @@ fun RootScaffold(
             }
         }
     }
-
-    LaunchedEffect(stack.active.configuration) {
-        if (stack.active.configuration == RootComponent.Config.Me) {
-            root.onProfileShown()
-        }
-    }
-
     // Если активен экран авторизации — рисуем его полноэкранно и не показываем бары
     val isAuth = stack.active.instance is RootComponent.Child.Auth
     if (isAuth) {
         Children(stack) { child ->
             when (val inst = child.instance) {
                 is RootComponent.Child.Auth -> AuthScreen(inst.component, dark, onToggleTheme)
-
                 else -> {}
             }
         }
@@ -178,18 +169,11 @@ fun RootScaffold(
                         tabStateHolder.SaveableStateProvider(saveKey) {
                             when (val inst = child.instance) {
                                 is RootComponent.Child.Me -> {
-                                    LaunchedEffect(Unit) { root.onProfileShown() }
                                     ProfileScreen(
-                                        employee = root.profile.value,
-                                        onLogout = { root.logout() },
-                                        onAction = { act ->
-                                            if (act is ProfileAction.Settings) {
-                                                (root as DefaultRootComponent).openSettings()
-                                            }
-                                        }
+                                        component = inst.component,
+                                        onLogout = { root.logout() }
                                     )
                                 }
-
                                 is RootComponent.Child.Work -> WorkContent(inst.component)
                                 is RootComponent.Child.Chat -> Placeholder("Здесь будут чаты")
                                 is RootComponent.Child.News -> Placeholder("Здесь будут новости")
@@ -245,19 +229,7 @@ fun RootScaffold(
                                         is RootComponent.Child.Chat -> Placeholder("Здесь будут чаты")
                                         is RootComponent.Child.News -> Placeholder("Здесь будут новости")
                                         is RootComponent.Child.Game -> Placeholder("Здесь будут уведомления")
-                                        is RootComponent.Child.Me -> {
-                                            LaunchedEffect(Unit) { root.onProfileShown() }
-                                            ProfileScreen(
-                                                employee = root.profile.value,
-                                                onLogout = { root.logout() },
-                                                onAction = { act ->
-                                                    if (act is ProfileAction.Settings) {
-                                                        (root as DefaultRootComponent).openSettings()
-                                                    }
-                                                }
-                                            )
-                                        }
-
+                                        is RootComponent.Child.Me   -> ProfileScreen(component = inst.component, onLogout = { root.logout() })
                                         is RootComponent.Child.Auth -> {}
                                         is RootComponent.Child.Settings -> SettingsScreen(inst.component)
                                         is RootComponent.Child.Sessions -> SessionsScreen(inst.component)

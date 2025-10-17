@@ -1,116 +1,94 @@
-// ru.acs.grandmap.feature.profile.ProfileScreen.kt
 package ru.acs.grandmap.feature.profile
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import ru.acs.grandmap.feature.auth.dto.EmployeeDto
-import ru.acs.grandmap.ui.common.*
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
+import ru.acs.grandmap.ui.common.MenuItem
+import ru.acs.grandmap.ui.common.TwoTilesRow
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
-sealed interface ProfileAction {
-    data object Awards : ProfileAction
-    data object Reviews : ProfileAction
-    data object Photos : ProfileAction
-    data object Calendar : ProfileAction
-    data object HRDocs : ProfileAction
-    data object Notifications : ProfileAction
-    data object Learning : ProfileAction
-    data object Wiki : ProfileAction
-
-    data object Settings : ProfileAction
-    data object Help : ProfileAction
-    data object Feedback : ProfileAction
-}
-
+@OptIn(ExperimentalTime::class)
 @Composable
 fun ProfileScreen(
-    employee: EmployeeDto?,
-    onAction: (ProfileAction) -> Unit = {},
-    onLogout: () -> Unit = {}
+    component: ProfileComponent,
+    onLogout: () -> Unit
 ) {
-    if (employee == null) {
-        Box(Modifier.fillMaxSize().padding(16.dp)) { Text("Профиль не загружен") }
-        return
-    }
+    val s by component.uiState
 
-    val outline = MaterialTheme.colorScheme.outline
-    val cardShape = RoundedCornerShape(16.dp)
+    val scroll = rememberScrollState()
+    val shape = RoundedCornerShape(16.dp)
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scroll)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Заголовок
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(employee.displayName ?: "—", style = MaterialTheme.typography.titleLarge)
-            Divider()
-            Text("Телефон: ${employee.phoneE164 ?: "—"}")
-            Text("Email: ${employee.email ?: "—"}")
-            Text("Табельный №: ${employee.employeeNumber ?: "—"}")
-            Text("Должность: ${employee.jobTitle ?: "—"}")
-        }
-
-        Spacer(Modifier.height(8.dp))
-
-        // --- Сетка быстрых действий (по два в ряд) ---
-        TwoTilesRow(
-            left = { MenuItem(Icons.Filled.EmojiEvents, "Награды",
-                onClick = { onAction(ProfileAction.Awards) }, shape = cardShape) },
-            right = { MenuItem(Icons.Filled.Star, "Отзывы",
-                onClick = { onAction(ProfileAction.Reviews) }, shape = cardShape) }
-        )
-        TwoTilesRow(
-            left = { MenuItem(Icons.Filled.PhotoCamera, "Фото", onClick = {
-                onAction(ProfileAction.Photos)
-            }, shape = cardShape) },
-            right = { MenuItem(Icons.Filled.CalendarMonth, "Календарь",
-                onClick = { onAction(ProfileAction.Calendar) }, shape = cardShape) }
-        )
-        TwoTilesRow(
-            left = { MenuItem(Icons.Filled.Badge, "HR и док-ты", onClick = {
-                onAction(ProfileAction.HRDocs)
-            }, shape = cardShape,) },
-            right = { MenuItem(Icons.Filled.Notifications, "Уведомления",
-                onClick = { onAction(ProfileAction.Notifications) }, shape = cardShape) }
-        )
-        TwoTilesRow(
-            left = { MenuItem(Icons.Filled.School, "Обучение", onClick = {
-                onAction(ProfileAction.Learning)
-            }, shape = cardShape) },
-            right = { MenuItem(Icons.Filled.Search, "WIKI", onClick = {
-                onAction(ProfileAction.Wiki)
-            }, shape = cardShape) }
+        HeaderCard(
+            loading = s.loading,
+            lastSync = s.lastSync,
+            onRefresh = { component.refresh() }
         )
 
-        // --- Широкие пункты меню ---
+        // Инфо о сотруднике (с данными или плейсхолдерами)
+        InfoSection(
+            loading = s.loading && s.employee == null,
+            name = s.employee?.displayName,
+            phone = s.employee?.phoneE164,
+            email = s.employee?.email,
+            number = s.employee?.employeeNumber,
+            title = s.employee?.jobTitle
+        )
+
+        // Быстрые действия (рисуем всегда)
+        TwoTilesRow(
+            left  = { MenuItem(Icons.Filled.EmojiEvents, "Награды", onClick = { /* TODO */ }, shape = shape) },
+            right = { MenuItem(Icons.Filled.Star,        "Отзывы",  onClick = { /* TODO */ }, shape = shape) },
+        )
+        TwoTilesRow(
+            left  = { MenuItem(Icons.Filled.PhotoCamera, "Фото",     onClick = { /* TODO */ }, shape = shape) },
+            right = { MenuItem(Icons.Filled.CalendarMonth,"Календарь",onClick = { /* TODO */ }, shape = shape) },
+        )
+        TwoTilesRow(
+            left  = { MenuItem(Icons.Filled.Badge, "HR и док-ты", onClick = { /* TODO */ }, shape = shape) },
+            right = { MenuItem(Icons.Filled.Notifications, "Уведомления", onClick = { /* TODO */ }, shape = shape) },
+        )
+        TwoTilesRow(
+            left  = { MenuItem(Icons.Filled.School, "Обучение", onClick = { /* TODO */ }, shape = shape) },
+            right = { MenuItem(Icons.Filled.Search, "WIKI",     onClick = { /* TODO */ }, shape = shape) },
+        )
+
+        // Навигация к настройкам/сессиям
         MenuItem(
             icon = Icons.Filled.Settings,
             title = "Настройки",
-            onClick = { onAction(ProfileAction.Settings) },
+            onClick = component::openSettings,
         )
         MenuItem(
-            icon = Icons.Filled.HelpOutline,
-            title = "Помощь",
-            onClick = { onAction(ProfileAction.Help) },
+            icon = Icons.Filled.Devices,
+            title = "Сеансы на устройствах",
+            onClick = component::openSessions,
         )
-        MenuItem(
-            icon = Icons.Filled.PhoneInTalk,
-            title = "Обратная связь",
-            onClick = { onAction(ProfileAction.Feedback) },
-        )
+        MenuItem(Icons.Filled.HelpOutline, "Помощь", onClick = { /* TODO */ })
+        MenuItem(Icons.Filled.PhoneInTalk, "Обратная связь", onClick = { /* TODO */ })
 
-        // --- Выход (error-стиль) ---
+        // Выход
         MenuItem(
             icon = Icons.Filled.Logout,
             title = "Выйти",
@@ -123,17 +101,117 @@ fun ProfileScreen(
             trailingTint = MaterialTheme.colorScheme.onErrorContainer
         )
 
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "Версия 2.1.4",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodySmall,
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp)
+        // Ошибка (если кэша не было и сеть упала)
+        if (s.error != null && s.employee == null) {
+            Text(
+                s.error ?: "",
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+            OutlinedButton(onClick = { component.refresh() }) { Text("Повторить") }
+        }
 
+        Spacer(Modifier.height(64.dp)) // безопасный отступ к нижнему бару
+    }
+}
+
+@OptIn(ExperimentalTime::class)
+@Composable
+private fun HeaderCard(
+    loading: Boolean,
+    lastSync: Instant?,
+    onRefresh: () -> Unit
+) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("Профиль", style = MaterialTheme.typography.titleLarge)
+                Spacer(Modifier.height(4.dp))
+                val info = when {
+                    loading && lastSync == null -> "Загружаем…"
+                    loading && lastSync != null -> "Обновляем…"
+                    lastSync != null -> "Обновлено ${formatAgo(lastSync)}"
+                    else -> "Нет данных"
+                }
+                Text(
+                    info,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            FilledTonalIconButton(
+                onClick = onRefresh,
+                enabled = !loading
+            ) {
+                Icon(Icons.Filled.Refresh, contentDescription = "Обновить")
+            }
+        }
+        if (loading) {
+            LinearProgressIndicator(Modifier.fillMaxWidth())
+        }
+    }
+}
+
+@Composable
+private fun InfoSection(
+    loading: Boolean,
+    name: String?,
+    phone: String?,
+    email: String?,
+    number: String?,
+    title: String?
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        InfoRow(label = "ФИО", value = name, loading = loading)
+        Divider()
+        InfoRow(label = "Телефон", value = phone, loading = loading)
+        InfoRow(label = "Email", value = email, loading = loading)
+        InfoRow(label = "Табельный №", value = number, loading = loading)
+        InfoRow(label = "Должность", value = title, loading = loading)
+    }
+}
+
+@Composable
+private fun InfoRow(label: String, value: String?, loading: Boolean) {
+    val placeholderHeight = 18.dp
+    val placeholder = @Composable {
+        Box(
+            Modifier
+                .fillMaxWidth(0.6f)
+                .height(placeholderHeight)
+                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(4.dp))
+                .alpha(0.7f)
         )
-        Spacer(Modifier.height(64.dp)) // чтобы не упиралось в нижний бар
+    }
+    Row(
+        Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, modifier = Modifier.width(130.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.width(8.dp))
+        if (loading) {
+            placeholder()
+        } else {
+            Text(value ?: "—", modifier = Modifier.weight(1f))
+        }
+    }
+}
+
+@OptIn(ExperimentalTime::class)
+@Composable
+private fun formatAgo(instant: Instant): String {
+    // очень простой релятив: "только что", "N мин назад", "N ч назад"
+    val now = Clock.System.now()
+    val diff = now - instant
+    return when {
+        diff < 30.seconds -> "только что"
+        diff < 60.minutes -> "${(diff.inWholeMinutes).coerceAtLeast(1)} мин назад"
+        else -> "${(diff.inWholeHours)} ч назад"
     }
 }

@@ -17,7 +17,6 @@ class AuthApi(
 ) {
     private val AUTH = "$baseUrl/api/Auth"
     private val REFRESH_V2 = "$AUTH/refresh-v2"
-    private val PROFILE    = "$AUTH/profile"
     suspend fun ping(): String =
         client.get("$baseUrl/api/Auth/ping").body()
 
@@ -35,9 +34,6 @@ class AuthApi(
             contentType(ContentType.Application.Json)
             setBody(GetTokensRequestDto(refresh))
         }.body()
-
-    suspend fun getProfile(): EmployeeDto =
-        client.get(PROFILE).body()
 
     @Serializable private data class RefreshReq(val refreshToken: String)
     @Serializable private data class RefreshResp(

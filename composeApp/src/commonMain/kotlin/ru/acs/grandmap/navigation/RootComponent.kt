@@ -2,6 +2,7 @@ package ru.acs.grandmap.navigation
 
 import androidx.compose.runtime.mutableStateOf
 import com.arkivanov.decompose.ComponentContext
+import com.arkivanov.decompose.DelicateDecomposeApi
 import com.arkivanov.decompose.router.stack.ChildStack
 import com.arkivanov.decompose.router.stack.StackNavigation
 import com.arkivanov.decompose.router.stack.bringToFront
@@ -36,6 +37,10 @@ import ru.acs.grandmap.feature.auth.defaultUseCookies
 import ru.acs.grandmap.feature.work.DefaultWorkComponent
 import ru.acs.grandmap.feature.work.WorkComponent
 import ru.acs.grandmap.feature.auth.dto.*
+import ru.acs.grandmap.feature.profile.DefaultProfileComponent
+import ru.acs.grandmap.feature.profile.ProfileApi
+import ru.acs.grandmap.feature.profile.ProfileComponent
+import ru.acs.grandmap.feature.profile.ProfileRepository
 import ru.acs.grandmap.feature.sessions.SessionsComponent
 import ru.acs.grandmap.feature.settings.SettingsComponent
 import ru.acs.grandmap.network.ApiException
@@ -45,41 +50,25 @@ import io.ktor.utils.io.errors.IOException as KtorIOException
 
 interface RootComponent {
     val childStack: Value<ChildStack<Config, Child>>
-    val profile: ComposeState<EmployeeDto?>
     val events: SharedFlow<UiEvent>
     fun select(tab: Tab)
     fun reselect(tab: Tab)
 
-    fun onProfileShown()
     fun openSettings()
+    fun openSessions()
     fun logout()
 
     // что хранится в back stack
     @Serializable
     sealed class Config {
-        @Serializable
-        data object Auth : Config()
-
-        @Serializable
-        data object Work : Config()
-
-        @Serializable
-        data object Chat : Config()
-
-        @Serializable
-        data object News : Config()
-
-        @Serializable
-        data object Game : Config()
-
-        @Serializable
-        data object Me : Config()
-
-        @Serializable
-        data object Settings : Config()
-
-        @Serializable
-        data object Sessions : Config()
+        @Serializable data object Auth : Config()
+        @Serializable data object Work : Config()
+        @Serializable data object Chat : Config()
+        @Serializable data object News : Config()
+        @Serializable data object Game : Config()
+        @Serializable data object Me : Config()
+        @Serializable data object Settings : Config()
+        @Serializable data object Sessions : Config()
     }
 
     sealed class Child {
@@ -88,7 +77,7 @@ interface RootComponent {
         data object Chat : Child()
         data object News : Child()
         data object Game : Child()
-        data object Me : Child()
+        data class Me(val component: ProfileComponent) : Child()
         data class Settings(val component: SettingsComponent) : Child()
         data class Sessions(val component: SessionsComponent) : Child()
     }
@@ -207,7 +196,6 @@ class DefaultRootComponent(
     }
 
     private val _profile = mutableStateOf<EmployeeDto?>(null)
-    override val profile: ComposeState<EmployeeDto?> = _profile
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -216,7 +204,6 @@ class DefaultRootComponent(
         scope.launch {
             tokenManager.state.collect { st ->
                 if (st is TokenState.Unauthenticated) {
-                    _profile.value = null
                     nav.bringToFront(RootComponent.Config.Auth)
                 }
             }
@@ -228,33 +215,6 @@ class DefaultRootComponent(
 
     private fun showSnack(text: String) {
         _events.tryEmit(UiEvent.Snack(text))
-    }
-
-    private val authApi = AuthApi(httpClient, BASE_URL)
-
-    override fun onProfileShown() {
-        scope.launch {
-            runCatching { authApi.getProfile() }.onSuccess { emp ->
-                _profile.value = emp
-            }.onFailure { err ->
-                when (val e = err.toAppError()) {
-                    AppError.Unauthorized -> { /* logout уже сделан, экран сам сменится */
-                    }
-
-                    is AppError.Http -> showSnack(e.message ?: "Ошибка ${e.code}")
-                    is AppError.Network -> showSnack("Нет сети")
-                    is AppError.Unknown -> showSnack("Что-то пошло не так")
-                }
-            }
-        }
-    }
-
-    override fun openSettings() {
-        // Пушим поверх текущего стека (внутри вкладки Me)
-        nav.push(RootComponent.Config.Settings)
-        // Не обязательно немедленно снэпшотить — снимем при переключении вкладки.
-        // Если хочешь — можешь сразу обновить:
-        stacksByTab[currentTab] = childStack.value.items.map { it.configuration }
     }
 
     fun openSessionsFromSettings() {
@@ -276,6 +236,7 @@ class DefaultRootComponent(
     }
 
 
+    @OptIn(DelicateDecomposeApi::class)
     private fun createChild(
         cfg: RootComponent.Config,
         ctx: ComponentContext
@@ -286,11 +247,9 @@ class DefaultRootComponent(
                 tokenManager = tokenManager,
                 httpClient = httpClient,
                 useCookiesDefault = defaultUseCookies(),
-                onAuthorized = { employee ->
-                    _profile.value = employee
-                    currentTab = Tab.Me
-                    stacksByTab[Tab.Me] = listOf(RootComponent.Config.Me)  // обновили кэш стека вкладки
-                    nav.replaceAll(RootComponent.Config.Me)                // заменили весь стек одним экраном
+                onAuthorized = { _ ->
+                    // после логина — на вкладку Профиль:
+                    nav.replaceAll(RootComponent.Config.Me)
                 }
             )
         )
@@ -299,13 +258,24 @@ class DefaultRootComponent(
         RootComponent.Config.Chat -> RootComponent.Child.Chat
         RootComponent.Config.News -> RootComponent.Child.News
         RootComponent.Config.Game -> RootComponent.Child.Game
-        RootComponent.Config.Me -> RootComponent.Child.Me
+
+        RootComponent.Config.Me -> {
+            val repo = ProfileRepository(api = ProfileApi(httpClient))
+            RootComponent.Child.Me(
+                DefaultProfileComponent(
+                    componentContext = ctx,
+                    repo = repo,
+                    onOpenSettings = { nav.push(RootComponent.Config.Settings) },
+                    onOpenSessions = { nav.push(RootComponent.Config.Sessions) }
+                )
+            )
+        }
 
         RootComponent.Config.Settings -> RootComponent.Child.Settings(
             ru.acs.grandmap.feature.settings.DefaultSettingsComponent(
                 componentContext = ctx,
                 onBack = { nav.pop() },
-                onOpenSessions = { openSessionsFromSettings() }
+                onOpenSessions = { nav.bringToFront(RootComponent.Config.Sessions) }
             )
         )
 
@@ -317,6 +287,9 @@ class DefaultRootComponent(
             )
         )
     }
+
+    override fun openSettings() { nav.push(RootComponent.Config.Settings) }
+    override fun openSessions() { nav.push(RootComponent.Config.Sessions) }
 
     override fun select(tab: Tab) {
         val currentTab = currentRootTabOrNull()
@@ -348,8 +321,6 @@ class DefaultRootComponent(
         scope.launch {
             // (по желанию: дернуть API /logout)
             tokenManager.logout()
-            _profile.value = null
-
             // обнулим кэши стеков вкладок
             tabStacks.clear()
 
