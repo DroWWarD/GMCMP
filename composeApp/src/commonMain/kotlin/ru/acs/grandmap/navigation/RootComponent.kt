@@ -37,9 +37,11 @@ import ru.acs.grandmap.feature.auth.defaultUseCookies
 import ru.acs.grandmap.feature.work.DefaultWorkComponent
 import ru.acs.grandmap.feature.work.WorkComponent
 import ru.acs.grandmap.feature.auth.dto.*
+import ru.acs.grandmap.feature.game.DefaultGameComponent
 import ru.acs.grandmap.feature.profile.DefaultProfileComponent
 import ru.acs.grandmap.feature.profile.ProfileApi
 import ru.acs.grandmap.feature.profile.ProfileComponent
+import ru.acs.grandmap.feature.game.GameComponent
 import ru.acs.grandmap.feature.profile.ProfileRepository
 import ru.acs.grandmap.feature.sessions.SessionsComponent
 import ru.acs.grandmap.feature.settings.SettingsComponent
@@ -76,7 +78,7 @@ interface RootComponent {
         data class Work(val component: WorkComponent) : Child()
         data object Chat : Child()
         data object News : Child()
-        data object Game : Child()
+        data class Game(val component: GameComponent) : Child()
         data class Me(val component: ProfileComponent) : Child()
         data class Settings(val component: SettingsComponent) : Child()
         data class Sessions(val component: SessionsComponent) : Child()
@@ -254,10 +256,13 @@ class DefaultRootComponent(
             )
         )
 
-        RootComponent.Config.Work -> RootComponent.Child.Work(DefaultWorkComponent(ctx))
+        RootComponent.Config.Work -> RootComponent.Child.Work(
+            DefaultWorkComponent(ctx))
         RootComponent.Config.Chat -> RootComponent.Child.Chat
         RootComponent.Config.News -> RootComponent.Child.News
-        RootComponent.Config.Game -> RootComponent.Child.Game
+        RootComponent.Config.Game -> RootComponent.Child.Game(
+            DefaultGameComponent(ctx)
+        )
 
         RootComponent.Config.Me -> {
             val repo = ProfileRepository(api = ProfileApi(httpClient))

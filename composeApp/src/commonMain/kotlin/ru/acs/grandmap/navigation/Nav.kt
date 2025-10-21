@@ -20,6 +20,7 @@ import com.arkivanov.decompose.extensions.compose.subscribeAsState
 import kotlinx.coroutines.flow.collectLatest
 import ru.acs.grandmap.core.BackHandlerCompat
 import ru.acs.grandmap.feature.auth.AuthScreen
+import ru.acs.grandmap.feature.game.GameScreen
 import ru.acs.grandmap.feature.profile.ProfileScreen
 import ru.acs.grandmap.feature.sessions.SessionsScreen
 import ru.acs.grandmap.feature.settings.SettingsScreen
@@ -177,7 +178,7 @@ fun RootScaffold(
                                 is RootComponent.Child.Work -> WorkContent(inst.component)
                                 is RootComponent.Child.Chat -> Placeholder("Здесь будут чаты")
                                 is RootComponent.Child.News -> Placeholder("Здесь будут новости")
-                                is RootComponent.Child.Game -> Placeholder("Здесь будут игры")
+                                is RootComponent.Child.Game -> GameScreen(inst.component)
                                 is RootComponent.Child.Auth -> {}
                                 is RootComponent.Child.Settings -> SettingsScreen(inst.component)
                                 is RootComponent.Child.Sessions -> SessionsScreen(inst.component)
@@ -228,7 +229,7 @@ fun RootScaffold(
                                         is RootComponent.Child.Work -> WorkContent(inst.component)
                                         is RootComponent.Child.Chat -> Placeholder("Здесь будут чаты")
                                         is RootComponent.Child.News -> Placeholder("Здесь будут новости")
-                                        is RootComponent.Child.Game -> Placeholder("Здесь будут уведомления")
+                                        is RootComponent.Child.Game -> GameScreen(inst.component)
                                         is RootComponent.Child.Me   -> ProfileScreen(component = inst.component, onLogout = { root.logout() })
                                         is RootComponent.Child.Auth -> {}
                                         is RootComponent.Child.Settings -> SettingsScreen(inst.component)
