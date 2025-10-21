@@ -14,6 +14,12 @@ interface ProfileComponent {
     fun refresh(force: Boolean = true)
     fun openSettings()
     fun openSessions()
+
+    fun showDbInspector()
+    fun hideDbInspector()
+    fun refreshDbInspector()
+    fun clearDbInspector()
+    fun syncAndRefreshDbInspector()
 }
 
 data class UiState @OptIn(ExperimentalTime::class) constructor(
@@ -21,7 +27,10 @@ data class UiState @OptIn(ExperimentalTime::class) constructor(
     val employee: EmployeeDto? = null,
     val error: String? = null,
     val lastSync: Instant? = null,   // когда были синхронизированы данные
-    val fromCache: Boolean = false   // текущее employee из кэша?
+    val fromCache: Boolean = false,   // текущее employee из кэша?
+
+    val dbVisible: Boolean = false,
+    val dbRows: List<ProfileRepository.DebugRow> = emptyList()
 )
 
 class DefaultProfileComponent(
@@ -110,4 +119,38 @@ class DefaultProfileComponent(
     override fun openSessions() = onOpenSessions()
 
     fun onDestroy() { scope.cancel() }
+
+    override fun showDbInspector() {
+        scope.launch {
+            val rows = runCatching { repo.debugDump() }.getOrElse { emptyList() }
+            _state.value = _state.value.copy(dbVisible = true, dbRows = rows)
+        }
+    }
+
+    override fun hideDbInspector() {
+        _state.value = _state.value.copy(dbVisible = false)
+    }
+
+    override fun refreshDbInspector() {
+        scope.launch {
+            val rows = runCatching { repo.debugDump() }.getOrElse { emptyList() }
+            _state.value = _state.value.copy(dbRows = rows)
+        }
+    }
+
+    override fun clearDbInspector() {
+        scope.launch {
+            runCatching { repo.clear() }
+            val rows = runCatching { repo.debugDump() }.getOrElse { emptyList() }
+            _state.value = _state.value.copy(dbRows = rows)
+        }
+    }
+
+    override fun syncAndRefreshDbInspector() {
+        scope.launch {
+            runCatching { repo.fetchRemoteAndCache() }
+            val rows = runCatching { repo.debugDump() }.getOrElse { emptyList() }
+            _state.value = _state.value.copy(dbRows = rows)
+        }
+    }
 }

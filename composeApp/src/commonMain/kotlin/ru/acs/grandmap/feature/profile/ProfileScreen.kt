@@ -74,6 +74,22 @@ fun ProfileScreen(
             right = { MenuItem(Icons.Filled.Search, "WIKI",     onClick = { /* TODO */ }, shape = shape) },
         )
 
+        MenuItem(
+            icon = Icons.Filled.TableChart,
+            title = "Инспектор БД",
+            onClick = component::showDbInspector
+        )
+        if (s.dbVisible) {
+            DbInspectorDialog(
+                rows = s.dbRows,
+                onRefresh = component::refreshDbInspector,
+                onClear = component::clearDbInspector,
+                onClose = component::hideDbInspector,
+                onSync = component::syncAndRefreshDbInspector
+            )
+        }
+
+
         // Навигация к настройкам/сессиям
         MenuItem(
             icon = Icons.Filled.Settings,
@@ -214,4 +230,59 @@ private fun formatAgo(instant: Instant): String {
         diff < 60.minutes -> "${(diff.inWholeMinutes).coerceAtLeast(1)} мин назад"
         else -> "${(diff.inWholeHours)} ч назад"
     }
+}
+
+@Composable
+fun DbInspectorDialog(
+    rows: List<ProfileRepository.DebugRow>,
+    onRefresh: () -> Unit,
+    onClear: () -> Unit,
+    onClose: () -> Unit,
+    onSync: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onClose,
+        confirmButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = onClear) { Text("Очистить") }
+                TextButton(onClick = onSync) { Text("Синхронизировать") }
+                TextButton(onClick = onRefresh) { Text("Обновить") }
+                TextButton(onClick = onClose) { Text("Закрыть") }
+            }
+        },
+        title = { Text("Таблица: profile_cache") },
+        text = {
+            Column(Modifier.fillMaxWidth().heightIn(max = 420.dp)) {
+                // Заголовок “таблицы”
+                Row(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+                    Text("id", modifier = Modifier.width(48.dp), style = MaterialTheme.typography.labelMedium)
+                    Text("json (preview)", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelMedium)
+                    Text("len", modifier = Modifier.width(56.dp), textAlign = TextAlign.End, style = MaterialTheme.typography.labelMedium)
+                    Text("lastSyncMs", modifier = Modifier.width(120.dp), textAlign = TextAlign.End, style = MaterialTheme.typography.labelMedium)
+                }
+                Divider()
+
+                val scroll = rememberScrollState()
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(scroll),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    if (rows.isEmpty()) {
+                        Text("Пусто", modifier = Modifier.padding(top = 12.dp))
+                    } else {
+                        rows.forEach { r ->
+                            Row(Modifier.fillMaxWidth()) {
+                                Text(r.id.toString(), modifier = Modifier.width(48.dp))
+                                Text(r.jsonSample, modifier = Modifier.weight(1f))
+                                Text(r.jsonLen.toString(), modifier = Modifier.width(56.dp), textAlign = TextAlign.End)
+                                Text(r.lastSyncMs?.toString() ?: "—", modifier = Modifier.width(120.dp), textAlign = TextAlign.End)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    )
 }

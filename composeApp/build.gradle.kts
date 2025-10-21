@@ -1,8 +1,6 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
-import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSetTree
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -78,6 +76,9 @@ kotlin {
                 // Date-Time
                 implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.0")
 
+                implementation(libs.bundles.sqldelight.common)
+                implementation("app.cash.sqldelight:async-extensions:2.1.0")
+
             }
         }
 
@@ -90,7 +91,6 @@ kotlin {
 
                 implementation("com.russhwolf:multiplatform-settings-no-arg:1.1.1")
 
-                implementation(libs.bundles.sqldelight.common)
             }
         }
 
@@ -109,6 +109,9 @@ kotlin {
 
                 // SQLDelight driver
                 implementation(libs.sqldelight.driver.android)
+                implementation("androidx.sqlite:sqlite-framework:2.4.0")
+                // (опционально, но полезно) базовый модуль:
+                implementation("androidx.sqlite:sqlite:2.4.0")
             }
         }
 
@@ -148,9 +151,9 @@ kotlin {
         val wasmJsMain by getting {
             dependencies {
                 implementation("io.ktor:ktor-client-js:3.0.1")
-                implementation("app.cash.sqldelight:web-worker-driver:2.1.0")
-                implementation(devNpm("copy-webpack-plugin", "9.1.0"))
-
+                implementation(libs.sqldelight.driver.web)
+                implementation(npm("sql.js", "1.10.3"))
+                implementation(npm("@cashapp/sqldelight-sqljs-worker", "2.1.0"))
             }
         }
 
@@ -213,6 +216,25 @@ sqldelight {
     databases {
         create("AppDatabase") {
             packageName.set("ru.acs.grandmap.db")
+            generateAsync.set(true)
         }
     }
 }
+// --- Make sql-wasm.wasm available at /sql-wasm.wasm for the dev server ---
+val copySqlJsWasm by tasks.registering(Copy::class) {
+    // После kotlinWasmNpmInstall файл лежит в корне проекта: build/wasm/node_modules/sql.js/dist
+    dependsOn(rootProject.tasks.named("kotlinWasmNpmInstall"))
+
+    from(rootProject.layout.buildDirectory.dir("wasm/node_modules/sql.js/dist")) {
+        include("sql-wasm.wasm")
+    }
+    // Этот каталог dev-server раздаёт по корню: http://localhost:8081/
+    into(layout.buildDirectory.dir("processedResources/wasmJs/main"))
+}
+
+// dev/prod пайплайны должны ждать копирование
+tasks.named("wasmJsProcessResources").configure { dependsOn(copySqlJsWasm) }
+tasks.named("wasmJsBrowserDevelopmentWebpack").configure { dependsOn(copySqlJsWasm) }
+tasks.named("wasmJsBrowserDevelopmentRun").configure { dependsOn(copySqlJsWasm) }
+tasks.named("wasmJsBrowserProductionWebpack").configure { dependsOn(copySqlJsWasm) }
+tasks.named("wasmJsBrowserProductionRun").configure { dependsOn(copySqlJsWasm) }
