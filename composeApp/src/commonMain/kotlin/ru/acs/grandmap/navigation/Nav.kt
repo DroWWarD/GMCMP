@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.collectLatest
 import ru.acs.grandmap.core.BackHandlerCompat
 import ru.acs.grandmap.feature.auth.AuthScreen
 import ru.acs.grandmap.feature.game.GameScreen
+import ru.acs.grandmap.feature.game.snake.SnakeScreen
 import ru.acs.grandmap.feature.profile.ProfileScreen
 import ru.acs.grandmap.feature.sessions.SessionsScreen
 import ru.acs.grandmap.feature.settings.SettingsScreen
@@ -41,15 +42,16 @@ private fun saveKeyOf(cfg: RootComponent.Config): String = when (cfg) {
     RootComponent.Config.Chat     -> "tab:chat"
     RootComponent.Config.News     -> "tab:news"
     RootComponent.Config.Game     -> "tab:game"
+    RootComponent.Config.GameSnake -> "screen:game-snake"
     RootComponent.Config.Settings -> "screen:settings"
     RootComponent.Config.Sessions -> "screen:sessions"
     RootComponent.Config.Auth     -> "screen:auth"
 }
 private fun titleFor(tab: Tab) = when (tab) {
-    Tab.Work -> "Главная"
+    Tab.Work -> "Рабочие функции"
     Tab.Chat -> "Чат"
     Tab.News -> "Новости"
-    Tab.Game -> "Уведомления"
+    Tab.Game -> "Игры"
     Tab.Me -> "Профиль"
 }
 
@@ -101,6 +103,7 @@ fun RootScaffold(
         RootComponent.Config.Chat -> Tab.Chat
         RootComponent.Config.News -> Tab.News
         RootComponent.Config.Game -> Tab.Game
+        RootComponent.Config.GameSnake -> Tab.Game
         RootComponent.Config.Me -> Tab.Me
         RootComponent.Config.Auth -> Tab.Work
         RootComponent.Config.Sessions -> Tab.Me
@@ -108,7 +111,9 @@ fun RootScaffold(
     }
 
     val isDetail = when (stack.active.configuration) {
-        RootComponent.Config.Settings, RootComponent.Config.Sessions -> true
+        RootComponent.Config.Settings,
+        RootComponent.Config.Sessions,
+        RootComponent.Config.GameSnake -> true
         else -> false
     }
 
@@ -179,6 +184,7 @@ fun RootScaffold(
                                 is RootComponent.Child.Chat -> Placeholder("Здесь будут чаты")
                                 is RootComponent.Child.News -> Placeholder("Здесь будут новости")
                                 is RootComponent.Child.Game -> GameScreen(inst.component)
+                                is RootComponent.Child.GameSnake -> SnakeScreen(inst.component)
                                 is RootComponent.Child.Auth -> {}
                                 is RootComponent.Child.Settings -> SettingsScreen(inst.component)
                                 is RootComponent.Child.Sessions -> SessionsScreen(inst.component)
@@ -230,6 +236,7 @@ fun RootScaffold(
                                         is RootComponent.Child.Chat -> Placeholder("Здесь будут чаты")
                                         is RootComponent.Child.News -> Placeholder("Здесь будут новости")
                                         is RootComponent.Child.Game -> GameScreen(inst.component)
+                                        is RootComponent.Child.GameSnake -> SnakeScreen( inst.component)
                                         is RootComponent.Child.Me   -> ProfileScreen(component = inst.component, onLogout = { root.logout() })
                                         is RootComponent.Child.Auth -> {}
                                         is RootComponent.Child.Settings -> SettingsScreen(inst.component)

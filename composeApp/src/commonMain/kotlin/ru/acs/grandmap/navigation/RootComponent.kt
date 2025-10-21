@@ -42,6 +42,8 @@ import ru.acs.grandmap.feature.profile.DefaultProfileComponent
 import ru.acs.grandmap.feature.profile.ProfileApi
 import ru.acs.grandmap.feature.profile.ProfileComponent
 import ru.acs.grandmap.feature.game.GameComponent
+import ru.acs.grandmap.feature.game.snake.DefaultSnakeComponent
+import ru.acs.grandmap.feature.game.snake.SnakeComponent
 import ru.acs.grandmap.feature.profile.ProfileRepository
 import ru.acs.grandmap.feature.sessions.SessionsComponent
 import ru.acs.grandmap.feature.settings.SettingsComponent
@@ -68,6 +70,7 @@ interface RootComponent {
         @Serializable data object Chat : Config()
         @Serializable data object News : Config()
         @Serializable data object Game : Config()
+            @Serializable data object GameSnake : Config()
         @Serializable data object Me : Config()
         @Serializable data object Settings : Config()
         @Serializable data object Sessions : Config()
@@ -79,6 +82,7 @@ interface RootComponent {
         data object Chat : Child()
         data object News : Child()
         data class Game(val component: GameComponent) : Child()
+        data class GameSnake(val component: SnakeComponent) : Child()
         data class Me(val component: ProfileComponent) : Child()
         data class Settings(val component: SettingsComponent) : Child()
         data class Sessions(val component: SessionsComponent) : Child()
@@ -104,7 +108,7 @@ class DefaultRootComponent(
         RootComponent.Config.Work -> Tab.Work
         RootComponent.Config.Chat -> Tab.Chat
         RootComponent.Config.News -> Tab.News
-        RootComponent.Config.Game -> Tab.Game
+        RootComponent.Config.Game, RootComponent.Config.GameSnake -> Tab.Game
         RootComponent.Config.Auth -> null
     }
 
@@ -127,23 +131,19 @@ class DefaultRootComponent(
 
     private val nav = StackNavigation<RootComponent.Config>()
 
-    private fun rootOf(tab: Tab): RootComponent.Config = when (tab) {
-        Tab.Me -> RootComponent.Config.Me
-        Tab.Work -> RootComponent.Config.Work
-        Tab.Chat -> RootComponent.Config.Chat
-        Tab.News -> RootComponent.Config.News
-        Tab.Game -> RootComponent.Config.Game
-    }
-
     private fun tabOf(cfg: RootComponent.Config): Tab? = when (cfg) {
         RootComponent.Config.Me,
         RootComponent.Config.Settings,
-        RootComponent.Config.Sessions -> Tab.Me
+        RootComponent.Config.Sessions
+             -> Tab.Me
 
         RootComponent.Config.Work -> Tab.Work
         RootComponent.Config.Chat -> Tab.Chat
         RootComponent.Config.News -> Tab.News
-        RootComponent.Config.Game -> Tab.Game
+
+        RootComponent.Config.Game,
+        RootComponent.Config.GameSnake
+             -> Tab.Game
         RootComponent.Config.Auth -> null
     }
 
@@ -188,11 +188,11 @@ class DefaultRootComponent(
             RootComponent.Config.Me,
             RootComponent.Config.Settings,
             RootComponent.Config.Sessions -> lastByTab[Tab.Me] = cfg
-
             RootComponent.Config.Work -> lastByTab[Tab.Work] = cfg
             RootComponent.Config.Chat -> lastByTab[Tab.Chat] = cfg
             RootComponent.Config.News -> lastByTab[Tab.News] = cfg
-            RootComponent.Config.Game -> lastByTab[Tab.Game] = cfg
+            RootComponent.Config.Game,
+                 RootComponent.Config.GameSnake-> lastByTab[Tab.Game] = cfg
             RootComponent.Config.Auth -> Unit
         }
     }
@@ -261,9 +261,17 @@ class DefaultRootComponent(
         RootComponent.Config.Chat -> RootComponent.Child.Chat
         RootComponent.Config.News -> RootComponent.Child.News
         RootComponent.Config.Game -> RootComponent.Child.Game(
-            DefaultGameComponent(ctx)
+            DefaultGameComponent(
+                componentContext = ctx,
+                onOpenSnake = { nav.push(RootComponent.Config.GameSnake) }
+            )
         )
-
+        RootComponent.Config.GameSnake -> RootComponent.Child.GameSnake(
+            DefaultSnakeComponent(
+                componentContext = ctx,
+                onBack = { nav.pop() }
+            )
+        )
         RootComponent.Config.Me -> {
             val repo = ProfileRepository(api = ProfileApi(httpClient))
             RootComponent.Child.Me(

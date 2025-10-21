@@ -7,26 +7,19 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import ru.acs.grandmap.feature.game.snake.SnakeScreen
 
 @Composable
-fun GameScreen(component: GameComponent) {
-    when (component.mode.value) {
-        is Mode.Menu -> GameMenu(onOpenSnake = component::openSnake)
-        is Mode.Snake -> SnakeScreen(onBack = component::back)
-    }
-}
+fun GameScreen(component: GameComponent) = GameMenu(onOpenSnake = component::openSnake)
 
 @Composable
 private fun GameMenu(onOpenSnake: () -> Unit) {
     Column(
         Modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text("Игры", style = MaterialTheme.typography.headlineSmall)
-        Card(
-            modifier = Modifier.fillMaxWidth().clickable { onOpenSnake() }
-        ) {
+
+        Card(Modifier.fillMaxWidth().clickable { onOpenSnake() }) {
             Row(
                 Modifier.fillMaxWidth().padding(16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
