@@ -106,8 +106,8 @@ private val LightColors = lightColorScheme(
 )
 
 private val DarkColors = darkColorScheme(
-    primary              = D_Primary,
-    onPrimary            = Color(0xFF0D1220),
+    primary              = L_Primary,
+    onPrimary            = Color.White,
     primaryContainer     = Color(0xFF2A3566),
     onPrimaryContainer   = Color(0xFFDDE2FF),
 

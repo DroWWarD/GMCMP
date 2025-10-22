@@ -1,66 +1,71 @@
 package ru.acs.grandmap.feature.sessions
 
+import TopBarController
+import TopBarSpec
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.Computer
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import ru.acs.grandmap.ui.common.AppBarIconAction
+import ru.acs.grandmap.ui.common.AppBarOverflowItem
 import ru.acs.grandmap.ui.common.AppTopBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SessionsScreen(
-    component: SessionsComponent
+    component: SessionsComponent,
+    topBar: TopBarController
 ) {
     val s by component.state
 
-    Scaffold(
-        topBar = {
-            AppTopBar(
+    LaunchedEffect(s.loading, s.error, s.items) {
+        val active = s.items.count { it.revokedAtUtc == null }
+        topBar.update(
+            TopBarSpec(
                 title = "Сеансы входа",
+                subtitle = when {
+                    s.loading -> "Обновляем список…"
+                    s.error != null -> "Ошибка: ${s.error}"
+                    else -> "Активных: $active · Всего: ${s.items.size}"
+                },
+                loading = s.loading,
                 onBack = component::back,
-                // тумблер темы не нужен → onToggleTheme = null
-                actions = {
-                    if (!s.loading) {
-                        IconButton(onClick = component::refresh) {
-                            Icon(
-                                imageVector = Icons.Default.Refresh,
-                                contentDescription = "Обновить"
-                            )
-                        }
-                    }
-                }
+                primary = listOf(AppBarIconAction(Icons.Default.Refresh, "Обновить", component::refresh, enabled = !s.loading)),
+                overflow = listOf(
+                    AppBarOverflowItem("Завершить другие", onClick = component::revokeOthers, leadingIcon = Icons.Default.Devices),
+                    AppBarOverflowItem("Завершить все", onClick = component::revokeAll, leadingIcon = Icons.Default.Delete, danger = true)
+                ),
+                visible = true
             )
+        )
+    }
+    DisposableEffect(Unit) { onDispose { topBar.clear() } }
 
-        }
-    ) { paddings ->
+    Scaffold{ paddings ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddings)
                 .padding(16.dp)
         ) {
-            if (s.error != null) {
-                Text(s.error!!, color = MaterialTheme.colorScheme.error)
-                Spacer(Modifier.height(8.dp))
-            }
-
-            if (s.loading) {
-                LinearProgressIndicator(Modifier.fillMaxWidth())
-                Spacer(Modifier.height(12.dp))
-            }
-
             LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.weight(1f)) {
                 items(s.items) { item ->
                     SessionCard(
@@ -69,21 +74,6 @@ fun SessionsScreen(
                         onRevoke = { component.revoke(item.id) }
                     )
                 }
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                OutlinedButton(
-                    onClick = component::revokeOthers,
-                    modifier = Modifier.weight(1f)
-                ) { Text("Завершить другие") }
-
-                Button(
-                    onClick = component::revokeAll,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) { Text("Завершить все") }
             }
         }
     }

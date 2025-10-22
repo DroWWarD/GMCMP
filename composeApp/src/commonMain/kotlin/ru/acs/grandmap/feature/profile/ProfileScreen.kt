@@ -1,5 +1,7 @@
 package ru.acs.grandmap.feature.profile
 
+import TopBarController
+import TopBarSpec
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -14,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import ru.acs.grandmap.ui.common.AppConfirmDialog
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import ru.acs.grandmap.ui.common.MenuItem
@@ -26,108 +29,113 @@ import kotlin.time.Instant
 @Composable
 fun ProfileScreen(
     component: ProfileComponent,
-    onLogout: () -> Unit
+    topBar: TopBarController
 ) {
     val s by component.uiState
+    var showLogout by remember { mutableStateOf(false) }
 
-    val scroll = rememberScrollState()
-    val shape = RoundedCornerShape(16.dp)
+    LaunchedEffect(Unit) {
+        topBar.update(TopBarSpec(title = "Профиль", visible = true))
+    }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(scroll)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        HeaderCard(
-            loading = s.loading,
-            lastSync = s.lastSync,
-            onRefresh = { component.refresh() }
-        )
+    Box(Modifier.fillMaxSize()) {                    // ← корневой слой экрана
 
-        // Инфо о сотруднике (с данными или плейсхолдерами)
-        InfoSection(
-            loading = s.loading && s.employee == null,
-            name = s.employee?.displayName,
-            phone = s.employee?.phoneE164,
-            email = s.employee?.email,
-            number = s.employee?.employeeNumber,
-            title = s.employee?.jobTitle
-        )
+        // ======= ОСНОВНОЙ КОНТЕНТ (первым — будет под модалкой) =======
+        val scroll = rememberScrollState()
+        val shape = RoundedCornerShape(16.dp)
 
-        // Быстрые действия (рисуем всегда)
-        TwoTilesRow(
-            left  = { MenuItem(Icons.Filled.EmojiEvents, "Награды", onClick = { /* TODO */ }, shape = shape) },
-            right = { MenuItem(Icons.Filled.Star,        "Отзывы",  onClick = { /* TODO */ }, shape = shape) },
-        )
-        TwoTilesRow(
-            left  = { MenuItem(Icons.Filled.PhotoCamera, "Фото",     onClick = { /* TODO */ }, shape = shape) },
-            right = { MenuItem(Icons.Filled.CalendarMonth,"Календарь",onClick = { /* TODO */ }, shape = shape) },
-        )
-        TwoTilesRow(
-            left  = { MenuItem(Icons.Filled.Badge, "HR и док-ты", onClick = { /* TODO */ }, shape = shape) },
-            right = { MenuItem(Icons.Filled.Notifications, "Уведомления", onClick = { /* TODO */ }, shape = shape) },
-        )
-        TwoTilesRow(
-            left  = { MenuItem(Icons.Filled.School, "Обучение", onClick = { /* TODO */ }, shape = shape) },
-            right = { MenuItem(Icons.Filled.Search, "WIKI",     onClick = { /* TODO */ }, shape = shape) },
-        )
-
-        MenuItem(
-            icon = Icons.Filled.TableChart,
-            title = "Инспектор БД",
-            onClick = component::showDbInspector
-        )
-        if (s.dbVisible) {
-            DbInspectorDialog(
-                rows = s.dbRows,
-                onRefresh = component::refreshDbInspector,
-                onClear = component::clearDbInspector,
-                onClose = component::hideDbInspector,
-                onSync = component::syncAndRefreshDbInspector
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(scroll)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            HeaderCard(
+                loading = s.loading,
+                lastSync = s.lastSync,
+                onRefresh = component::refresh
             )
+            InfoSection(
+                loading = s.loading && s.employee == null,
+                name = s.employee?.displayName,
+                phone = s.employee?.phoneE164,
+                email = s.employee?.email,
+                number = s.employee?.employeeNumber,
+                title = s.employee?.jobTitle
+            )
+            TwoTilesRow(
+                left  = { MenuItem(Icons.Filled.EmojiEvents, "Награды", onClick = { /* TODO */ }, shape = shape) },
+                right = { MenuItem(Icons.Filled.Star,        "Отзывы",  onClick = { /* TODO */ }, shape = shape) },
+            )
+            TwoTilesRow(
+                left  = { MenuItem(Icons.Filled.PhotoCamera, "Фото",     onClick = { /* TODO */ }, shape = shape) },
+                right = { MenuItem(Icons.Filled.CalendarMonth,"Календарь",onClick = { /* TODO */ }, shape = shape) },
+            )
+            TwoTilesRow(
+                left  = { MenuItem(Icons.Filled.Badge, "HR и док-ты", onClick = { /* TODO */ }, shape = shape) },
+                right = { MenuItem(Icons.Filled.Notifications, "Уведомления", onClick = { /* TODO */ }, shape = shape) },
+            )
+            TwoTilesRow(
+                left  = { MenuItem(Icons.Filled.School, "Обучение", onClick = { /* TODO */ }, shape = shape) },
+                right = { MenuItem(Icons.Filled.Search, "WIKI",     onClick = { /* TODO */ }, shape = shape) },
+            )
+
+            MenuItem(Icons.Filled.TableChart, "Инспектор БД", onClick = component::showDbInspector)
+
+            if (s.dbVisible) {
+                DbInspectorDialog(
+                    rows = s.dbRows,
+                    onRefresh = component::refreshDbInspector,
+                    onClear = component::clearDbInspector,
+                    onClose = component::hideDbInspector,
+                    onSync = component::syncAndRefreshDbInspector
+                )
+            }
+
+            MenuItem(Icons.Filled.Settings, "Настройки", onClick = component::openSettings)
+            MenuItem(Icons.Filled.Devices,  "Сеансы на устройствах", onClick = component::openSessions)
+
+            // ВЫХОД → открываем модалку
+            MenuItem(
+                icon = Icons.Filled.Logout,
+                title = "Выйти",
+                onClick = { showLogout = true },
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor   = MaterialTheme.colorScheme.onErrorContainer
+                ),
+                leadingTint = MaterialTheme.colorScheme.onErrorContainer,
+                trailingTint = MaterialTheme.colorScheme.onErrorContainer
+            )
+
+            if (s.error != null && s.employee == null) {
+                Text(
+                    s.error ?: "",
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+                OutlinedButton(onClick = { component::refresh }) { Text("Повторить") }
+            }
+
+            Spacer(Modifier.height(64.dp))
         }
 
-
-        // Навигация к настройкам/сессиям
-        MenuItem(
-            icon = Icons.Filled.Settings,
-            title = "Настройки",
-            onClick = component::openSettings,
-        )
-        MenuItem(
-            icon = Icons.Filled.Devices,
-            title = "Сеансы на устройствах",
-            onClick = component::openSessions,
-        )
-        MenuItem(Icons.Filled.HelpOutline, "Помощь", onClick = { /* TODO */ })
-        MenuItem(Icons.Filled.PhoneInTalk, "Обратная связь", onClick = { /* TODO */ })
-
-        // Выход
-        MenuItem(
+        // ======= МОДАЛКА (последним слоем — окажется поверх и центрируется на весь экран) =======
+        AppConfirmDialog(
+            visible = showLogout,
+            onDismissRequest = { showLogout = false },
+            onConfirm = {
+                showLogout = false
+                component.logOut()
+            },
+            title = "Выйти из приложения?",
+            message = "Текущая сессия будет завершена. Вы сможете войти снова.",
+            confirmText = "Выйти",
+            cancelText  = "Отмена",
             icon = Icons.Filled.Logout,
-            title = "Выйти",
-            onClick = onLogout,
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.errorContainer,
-                contentColor   = MaterialTheme.colorScheme.onErrorContainer
-            ),
-            leadingTint = MaterialTheme.colorScheme.onErrorContainer,
-            trailingTint = MaterialTheme.colorScheme.onErrorContainer
+            danger = true
         )
-
-        // Ошибка (если кэша не было и сеть упала)
-        if (s.error != null && s.employee == null) {
-            Text(
-                s.error ?: "",
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(top = 8.dp)
-            )
-            OutlinedButton(onClick = { component.refresh() }) { Text("Повторить") }
-        }
-
-        Spacer(Modifier.height(64.dp)) // безопасный отступ к нижнему бару
     }
 }
 

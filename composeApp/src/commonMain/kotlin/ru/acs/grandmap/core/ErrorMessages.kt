@@ -10,11 +10,11 @@ import ru.acs.grandmap.network.ApiException
 fun Throwable.toUserMessage(): String = when (this) {
     is CancellationException -> "Отменено"
     // Бизнес-ошибки от сервера: ApiException уже содержит detail/title — показываем как есть
-    is ApiException -> message ?: "Ошибка на сервере. Попробуйте позже."
+    is ApiException -> message ?: "Ошибка на сервере"
     // Сетевые и таймауты
     is HttpRequestTimeoutException,
     is ConnectTimeoutException,
-    is SocketTimeoutException -> "Не удалось связаться с сервером. Проверьте интернет и попробуйте ещё раз."
-    is IOException -> "Проблема с подключением к сети. Проверьте интернет и повторите попытку."
-    else -> "Что-то пошло не так. Попробуйте позже."
+    is SocketTimeoutException -> "Ожидание ответа сервера"
+    is IOException -> "Ожидание сети"
+    else -> "Непредвиденная ошибка"
 }

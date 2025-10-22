@@ -63,7 +63,7 @@ class DefaultSessionsComponent(
     override fun revokeAll() {
         scope.launch {
             runCatching { api.revokeAll() }
-                .onSuccess { refresh() } // текущая сессия отвалится позже — пользователь нажмёт «Выйти» сам
+                .onSuccess { refresh() }
                 .onFailure { _state.value = _state.value.copy(error = it.toUserMessage()) }
         }
     }

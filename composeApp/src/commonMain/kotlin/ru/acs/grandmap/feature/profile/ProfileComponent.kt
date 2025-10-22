@@ -20,6 +20,7 @@ interface ProfileComponent {
     fun refreshDbInspector()
     fun clearDbInspector()
     fun syncAndRefreshDbInspector()
+    fun logOut()
 }
 
 data class UiState @OptIn(ExperimentalTime::class) constructor(
@@ -37,7 +38,8 @@ class DefaultProfileComponent(
     componentContext: ComponentContext,
     private val repo: ProfileRepository,
     private val onOpenSettings: () -> Unit,
-    private val onOpenSessions: () -> Unit
+    private val onOpenSessions: () -> Unit,
+    private  val onLogOut: () -> Unit
 ) : ProfileComponent, ComponentContext by componentContext {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -153,4 +155,6 @@ class DefaultProfileComponent(
             _state.value = _state.value.copy(dbRows = rows)
         }
     }
+
+    override fun logOut() = onLogOut()
 }

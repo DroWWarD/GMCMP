@@ -137,3 +137,19 @@ fun SupportPhone() {
         }
     )
 }
+
+data class AppBarIconAction(
+    val icon: ImageVector,
+    val contentDescription: String?,
+    val onClick: () -> Unit,
+    val enabled: Boolean = true,
+    val visible: Boolean = true
+)
+
+data class AppBarOverflowItem(
+    val title: String,
+    val onClick: () -> Unit,
+    val leadingIcon: ImageVector? = null,
+    val enabled: Boolean = true,
+    val danger: Boolean = false        // для «красных» пунктов (Удалить, Очистить и т.п.)
+)

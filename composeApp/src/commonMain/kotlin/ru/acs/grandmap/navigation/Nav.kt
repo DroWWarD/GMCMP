@@ -1,5 +1,7 @@
 package ru.acs.grandmap.navigation
 
+import TopBarController
+import TopBarSpec
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -68,7 +70,6 @@ fun RootScaffold(
 ) {
     val root = rememberRootComponent()
     val stack by root.childStack.subscribeAsState()
-
     val snackHost = remember { SnackbarHostState() }
 
     BackHandlerCompat(enabled = true) {
@@ -110,16 +111,38 @@ fun RootScaffold(
         RootComponent.Config.Settings -> Tab.Me
     }
 
-    val isDetail = when (stack.active.configuration) {
-        RootComponent.Config.Settings,
-        RootComponent.Config.Sessions,
-        RootComponent.Config.GameSnake -> true
+    val isRoot = when (stack.active.configuration) {
+        RootComponent.Config.Me,
+        RootComponent.Config.Work,
+        RootComponent.Config.Chat,
+        RootComponent.Config.News,
+        RootComponent.Config.Game -> true
         else -> false
     }
 
     val tabs = remember { listOf(Tab.Me, Tab.Work, Tab.Chat, Tab.News, Tab.Game) }
-
     val tabStateHolder = rememberSaveableStateHolder()
+
+    val topBarController = remember { TopBarController() }
+    val spec by topBarController.spec.collectAsState()
+
+    LaunchedEffect(selected, isRoot) {
+        if (isRoot) {
+            topBarController.update(
+                TopBarSpec(
+                    title = titleFor(selected),
+                    subtitle = "",
+                    loading = false,
+                    onBack = null,
+                    primary = emptyList(),
+                    overflow = emptyList(),
+                    visible = true
+                )
+            )
+        } else {
+            topBarController.update(TopBarSpec(visible = false))
+        }
+    }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val compact = maxWidth < 600.dp
@@ -128,11 +151,16 @@ fun RootScaffold(
             Scaffold(
                 snackbarHost = { SnackbarHost(hostState = snackHost) },
                 topBar = {
-                    if (!isDetail) {
+                    if (spec.visible) {
                         AppTopBar(
-                            title = titleFor(selected),
+                            title = spec.title ?: titleFor(selected),
+                            subtitle = spec.subtitle,
+                            loading = spec.loading,
+                            onBack = spec.onBack,
                             onToggleTheme = onToggleTheme,
-                            dark = dark
+                            dark = dark,
+                            primaryActions = spec.primary,
+                            overflowItems = spec.overflow
                         )
                     }
                 },
@@ -174,20 +202,15 @@ fun RootScaffold(
                         val saveKey = saveKeyOf(child.configuration)
                         tabStateHolder.SaveableStateProvider(saveKey) {
                             when (val inst = child.instance) {
-                                is RootComponent.Child.Me -> {
-                                    ProfileScreen(
-                                        component = inst.component,
-                                        onLogout = { root.logout() }
-                                    )
-                                }
+                                is RootComponent.Child.Me -> ProfileScreen(component = inst.component, topBarController)
                                 is RootComponent.Child.Work -> WorkContent(inst.component)
                                 is RootComponent.Child.Chat -> Placeholder("Здесь будут чаты")
                                 is RootComponent.Child.News -> Placeholder("Здесь будут новости")
-                                is RootComponent.Child.Game -> GameScreen(inst.component)
+                                is RootComponent.Child.Game -> GameScreen(inst.component, topBarController)
                                 is RootComponent.Child.GameSnake -> SnakeScreen(inst.component)
                                 is RootComponent.Child.Auth -> {}
-                                is RootComponent.Child.Settings -> SettingsScreen(inst.component)
-                                is RootComponent.Child.Sessions -> SessionsScreen(inst.component)
+                                is RootComponent.Child.Settings -> SettingsScreen(inst.component, topBarController)
+                                is RootComponent.Child.Sessions -> SessionsScreen(inst.component, topBarController)
                             }
                         }
                     }
@@ -216,11 +239,14 @@ fun RootScaffold(
                     }
                 }
                 Column(Modifier.fillMaxSize()) {
-                    if (!isDetail) {
+                    if (spec.visible) {
                         AppTopBar(
-                            title = titleFor(selected),
+                            title = spec.title ?: titleFor(selected),
+                            onBack = spec.onBack,
                             onToggleTheme = onToggleTheme,
-                            dark = dark
+                            dark = dark,
+                            primaryActions = spec.primary,
+                            overflowItems = spec.overflow
                         )
                         Divider()
                     }
@@ -235,12 +261,12 @@ fun RootScaffold(
                                         is RootComponent.Child.Work -> WorkContent(inst.component)
                                         is RootComponent.Child.Chat -> Placeholder("Здесь будут чаты")
                                         is RootComponent.Child.News -> Placeholder("Здесь будут новости")
-                                        is RootComponent.Child.Game -> GameScreen(inst.component)
+                                        is RootComponent.Child.Game -> GameScreen(inst.component, topBarController)
                                         is RootComponent.Child.GameSnake -> SnakeScreen( inst.component)
-                                        is RootComponent.Child.Me   -> ProfileScreen(component = inst.component, onLogout = { root.logout() })
+                                        is RootComponent.Child.Me   -> ProfileScreen(inst.component, topBarController)
                                         is RootComponent.Child.Auth -> {}
-                                        is RootComponent.Child.Settings -> SettingsScreen(inst.component)
-                                        is RootComponent.Child.Sessions -> SessionsScreen(inst.component)
+                                        is RootComponent.Child.Settings -> SettingsScreen(inst.component, topBarController)
+                                        is RootComponent.Child.Sessions -> SessionsScreen(inst.component, topBarController)
                                     }
                                 }
                             }

@@ -279,7 +279,8 @@ class DefaultRootComponent(
                     componentContext = ctx,
                     repo = repo,
                     onOpenSettings = { nav.push(RootComponent.Config.Settings) },
-                    onOpenSessions = { nav.push(RootComponent.Config.Sessions) }
+                    onOpenSessions = { nav.push(RootComponent.Config.Sessions) },
+                    onLogOut = { logout() }
                 )
             )
         }
@@ -301,7 +302,9 @@ class DefaultRootComponent(
         )
     }
 
+    @OptIn(DelicateDecomposeApi::class)
     override fun openSettings() { nav.push(RootComponent.Config.Settings) }
+    @OptIn(DelicateDecomposeApi::class)
     override fun openSessions() { nav.push(RootComponent.Config.Sessions) }
 
     override fun select(tab: Tab) {

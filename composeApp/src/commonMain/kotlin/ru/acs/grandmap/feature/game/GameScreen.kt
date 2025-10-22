@@ -1,7 +1,11 @@
 package ru.acs.grandmap.feature.game
 
+import TopBarController
+import TopBarSpec
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -9,7 +13,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun GameScreen(component: GameComponent) = GameMenu(onOpenSnake = component::openSnake)
+fun GameScreen(
+    component: GameComponent,
+    topBar: TopBarController
+) {
+
+    LaunchedEffect(Unit) {
+        topBar.update(
+            TopBarSpec(
+                title = "Игры",
+            )
+        )
+    }
+    DisposableEffect(Unit) { onDispose { topBar.clear() } }
+    GameMenu(onOpenSnake = component::openSnake)
+}
 
 @Composable
 private fun GameMenu(onOpenSnake: () -> Unit) {
