@@ -1,4 +1,4 @@
-package ru.acs.grandmap.feature.settings
+package ru.acs.grandmap.feature.profile.settings
 
 import TopBarController
 import TopBarSpec
@@ -10,11 +10,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.unit.dp
-import ru.acs.grandmap.ui.common.AppTopBar
 import ru.acs.grandmap.ui.common.MenuItem
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -33,6 +31,7 @@ fun SettingsScreen(
             )
         )
     }
+    DisposableEffect(Unit) { onDispose { topBar.clear() } }
     val scroll = rememberScrollState()
     Column(
         modifier = Modifier

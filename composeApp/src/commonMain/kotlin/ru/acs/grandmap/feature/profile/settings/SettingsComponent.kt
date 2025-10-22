@@ -1,4 +1,4 @@
-package ru.acs.grandmap.feature.settings
+package ru.acs.grandmap.feature.profile.settings
 
 import com.arkivanov.decompose.ComponentContext
 

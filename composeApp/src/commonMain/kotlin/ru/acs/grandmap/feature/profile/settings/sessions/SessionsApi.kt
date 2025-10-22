@@ -1,4 +1,4 @@
-package ru.acs.grandmap.feature.sessions
+package ru.acs.grandmap.feature.profile.settings.sessions
 
 import io.ktor.client.*
 import io.ktor.client.call.body

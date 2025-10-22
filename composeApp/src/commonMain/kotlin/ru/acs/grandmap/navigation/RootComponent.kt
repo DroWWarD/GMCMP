@@ -27,16 +27,17 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
-import ru.acs.grandmap.config.BASE_URL
 import ru.acs.grandmap.core.auth.TokenManager
 import ru.acs.grandmap.core.auth.TokenState
-import ru.acs.grandmap.data.auth.AuthApi
 import ru.acs.grandmap.feature.auth.AuthComponent
 import ru.acs.grandmap.feature.auth.DefaultAuthComponent
 import ru.acs.grandmap.feature.auth.defaultUseCookies
 import ru.acs.grandmap.feature.work.DefaultWorkComponent
 import ru.acs.grandmap.feature.work.WorkComponent
+import ru.acs.grandmap.feature.chat.ChatComponent
 import ru.acs.grandmap.feature.auth.dto.*
+import ru.acs.grandmap.feature.chat.DefaultChatComponent
+import ru.acs.grandmap.feature.news.NewsComponent
 import ru.acs.grandmap.feature.game.DefaultGameComponent
 import ru.acs.grandmap.feature.profile.DefaultProfileComponent
 import ru.acs.grandmap.feature.profile.ProfileApi
@@ -44,11 +45,14 @@ import ru.acs.grandmap.feature.profile.ProfileComponent
 import ru.acs.grandmap.feature.game.GameComponent
 import ru.acs.grandmap.feature.game.snake.DefaultSnakeComponent
 import ru.acs.grandmap.feature.game.snake.SnakeComponent
+import ru.acs.grandmap.feature.news.DefaultNewsComponent
 import ru.acs.grandmap.feature.profile.ProfileRepository
-import ru.acs.grandmap.feature.sessions.SessionsComponent
-import ru.acs.grandmap.feature.settings.SettingsComponent
+import ru.acs.grandmap.feature.profile.settings.DefaultSettingsComponent
+import ru.acs.grandmap.feature.profile.settings.sessions.SessionsComponent
+import ru.acs.grandmap.feature.profile.settings.SettingsComponent
+import ru.acs.grandmap.feature.profile.settings.sessions.DefaultSessionsComponent
+import ru.acs.grandmap.feature.profile.settings.sessions.SessionsApi
 import ru.acs.grandmap.network.ApiException
-import androidx.compose.runtime.State as ComposeState
 import io.ktor.utils.io.errors.IOException as KtorIOException
 
 
@@ -65,25 +69,34 @@ interface RootComponent {
     // что хранится в back stack
     @Serializable
     sealed class Config {
-        @Serializable data object Auth : Config()
-        @Serializable data object Work : Config()
-        @Serializable data object Chat : Config()
-        @Serializable data object News : Config()
-        @Serializable data object Game : Config()
-            @Serializable data object GameSnake : Config()
-        @Serializable data object Me : Config()
-        @Serializable data object Settings : Config()
-        @Serializable data object Sessions : Config()
+        @Serializable
+        data object Auth : Config()
+        @Serializable
+        data object Work : Config()
+        @Serializable
+        data object Chat : Config()
+        @Serializable
+        data object News : Config()
+        @Serializable
+        data object Game : Config()
+        @Serializable
+        data object GameSnake : Config()
+        @Serializable
+        data object Profile : Config()
+        @Serializable
+        data object Settings : Config()
+        @Serializable
+        data object Sessions : Config()
     }
 
     sealed class Child {
         data class Auth(val component: AuthComponent) : Child()
         data class Work(val component: WorkComponent) : Child()
-        data object Chat : Child()
-        data object News : Child()
+        data class Chat(val component: ChatComponent) : Child()
+        data class News(val component: NewsComponent) : Child()
         data class Game(val component: GameComponent) : Child()
         data class GameSnake(val component: SnakeComponent) : Child()
-        data class Me(val component: ProfileComponent) : Child()
+        data class Profile(val component: ProfileComponent) : Child()
         data class Settings(val component: SettingsComponent) : Child()
         data class Sessions(val component: SessionsComponent) : Child()
     }
@@ -104,7 +117,7 @@ class DefaultRootComponent(
         mutableMapOf<Tab, List<RootComponent.Config>>() // стек для каждой вкладки
 
     private fun currentRootTabOrNull(): Tab? = when (childStack.value.active.configuration) {
-        RootComponent.Config.Me, RootComponent.Config.Settings, RootComponent.Config.Sessions -> Tab.Me
+        RootComponent.Config.Profile, RootComponent.Config.Settings, RootComponent.Config.Sessions -> Tab.Profile
         RootComponent.Config.Work -> Tab.Work
         RootComponent.Config.Chat -> Tab.Chat
         RootComponent.Config.News -> Tab.News
@@ -114,7 +127,7 @@ class DefaultRootComponent(
 
     private fun defaultStackFor(tab: Tab): List<RootComponent.Config> = listOf(
         when (tab) {
-            Tab.Me -> RootComponent.Config.Me
+            Tab.Profile -> RootComponent.Config.Profile
             Tab.Work -> RootComponent.Config.Work
             Tab.Chat -> RootComponent.Config.Chat
             Tab.News -> RootComponent.Config.News
@@ -132,10 +145,10 @@ class DefaultRootComponent(
     private val nav = StackNavigation<RootComponent.Config>()
 
     private fun tabOf(cfg: RootComponent.Config): Tab? = when (cfg) {
-        RootComponent.Config.Me,
+        RootComponent.Config.Profile,
         RootComponent.Config.Settings,
         RootComponent.Config.Sessions
-             -> Tab.Me
+            -> Tab.Profile
 
         RootComponent.Config.Work -> Tab.Work
         RootComponent.Config.Chat -> Tab.Chat
@@ -143,7 +156,8 @@ class DefaultRootComponent(
 
         RootComponent.Config.Game,
         RootComponent.Config.GameSnake
-             -> Tab.Game
+            -> Tab.Game
+
         RootComponent.Config.Auth -> null
     }
 
@@ -151,16 +165,16 @@ class DefaultRootComponent(
         childStack(
             source = nav,
             serializer = RootComponent.Config.serializer(),
-            initialConfiguration = if (tokenManager.state.value is TokenState.Authorized) RootComponent.Config.Me else RootComponent.Config.Auth,
+            initialConfiguration = if (tokenManager.state.value is TokenState.Authorized) RootComponent.Config.Profile else RootComponent.Config.Auth,
             handleBackButton = true,
             childFactory = ::createChild
         )
 
     private var currentTab: Tab =
-        tabOf(childStack.value.active.configuration) ?: Tab.Me
+        tabOf(childStack.value.active.configuration) ?: Tab.Profile
 
     private val stacksByTab: MutableMap<Tab, List<RootComponent.Config>> = mutableMapOf(
-        Tab.Me to listOf(RootComponent.Config.Me),
+        Tab.Profile to listOf(RootComponent.Config.Profile),
         Tab.Work to listOf(RootComponent.Config.Work),
         Tab.Chat to listOf(RootComponent.Config.Chat),
         Tab.News to listOf(RootComponent.Config.News),
@@ -176,7 +190,7 @@ class DefaultRootComponent(
     /** Применяем стек выбранной вкладки */
 
     private var lastByTab: MutableMap<Tab, RootComponent.Config> = mutableMapOf(
-        Tab.Me to RootComponent.Config.Me,
+        Tab.Profile to RootComponent.Config.Profile,
         Tab.Work to RootComponent.Config.Work,
         Tab.Chat to RootComponent.Config.Chat,
         Tab.News to RootComponent.Config.News,
@@ -185,14 +199,16 @@ class DefaultRootComponent(
 
     private fun rememberTab(cfg: RootComponent.Config) {
         when (cfg) {
-            RootComponent.Config.Me,
+            RootComponent.Config.Profile,
             RootComponent.Config.Settings,
-            RootComponent.Config.Sessions -> lastByTab[Tab.Me] = cfg
+            RootComponent.Config.Sessions -> lastByTab[Tab.Profile] = cfg
+
             RootComponent.Config.Work -> lastByTab[Tab.Work] = cfg
             RootComponent.Config.Chat -> lastByTab[Tab.Chat] = cfg
             RootComponent.Config.News -> lastByTab[Tab.News] = cfg
             RootComponent.Config.Game,
-                 RootComponent.Config.GameSnake-> lastByTab[Tab.Game] = cfg
+            RootComponent.Config.GameSnake -> lastByTab[Tab.Game] = cfg
+
             RootComponent.Config.Auth -> Unit
         }
     }
@@ -251,30 +267,39 @@ class DefaultRootComponent(
                 useCookiesDefault = defaultUseCookies(),
                 onAuthorized = { _ ->
                     // после логина — на вкладку Профиль:
-                    nav.replaceAll(RootComponent.Config.Me)
+                    nav.replaceAll(RootComponent.Config.Profile)
                 }
             )
         )
 
         RootComponent.Config.Work -> RootComponent.Child.Work(
-            DefaultWorkComponent(ctx))
-        RootComponent.Config.Chat -> RootComponent.Child.Chat
-        RootComponent.Config.News -> RootComponent.Child.News
+            DefaultWorkComponent(ctx)
+        )
+
+        RootComponent.Config.Chat -> RootComponent.Child.Chat(
+            DefaultChatComponent(ctx)
+        )
+
+        RootComponent.Config.News -> RootComponent.Child.News(
+            DefaultNewsComponent(ctx)
+        )
         RootComponent.Config.Game -> RootComponent.Child.Game(
             DefaultGameComponent(
                 componentContext = ctx,
                 onOpenSnake = { nav.push(RootComponent.Config.GameSnake) }
             )
         )
+
         RootComponent.Config.GameSnake -> RootComponent.Child.GameSnake(
             DefaultSnakeComponent(
                 componentContext = ctx,
                 onBack = { nav.pop() }
             )
         )
-        RootComponent.Config.Me -> {
+
+        RootComponent.Config.Profile -> {
             val repo = ProfileRepository(api = ProfileApi(httpClient))
-            RootComponent.Child.Me(
+            RootComponent.Child.Profile(
                 DefaultProfileComponent(
                     componentContext = ctx,
                     repo = repo,
@@ -286,7 +311,7 @@ class DefaultRootComponent(
         }
 
         RootComponent.Config.Settings -> RootComponent.Child.Settings(
-            ru.acs.grandmap.feature.settings.DefaultSettingsComponent(
+            DefaultSettingsComponent(
                 componentContext = ctx,
                 onBack = { nav.pop() },
                 onOpenSessions = { nav.bringToFront(RootComponent.Config.Sessions) }
@@ -294,18 +319,23 @@ class DefaultRootComponent(
         )
 
         RootComponent.Config.Sessions -> RootComponent.Child.Sessions(
-            ru.acs.grandmap.feature.sessions.DefaultSessionsComponent(
+            DefaultSessionsComponent(
                 componentContext = ctx,
-                api = ru.acs.grandmap.feature.sessions.SessionsApi(httpClient, tokenManager),
+                api = SessionsApi(httpClient, tokenManager),
                 onBack = { nav.pop() }
             )
         )
     }
 
     @OptIn(DelicateDecomposeApi::class)
-    override fun openSettings() { nav.push(RootComponent.Config.Settings) }
+    override fun openSettings() {
+        nav.push(RootComponent.Config.Settings)
+    }
+
     @OptIn(DelicateDecomposeApi::class)
-    override fun openSessions() { nav.push(RootComponent.Config.Sessions) }
+    override fun openSessions() {
+        nav.push(RootComponent.Config.Sessions)
+    }
 
     override fun select(tab: Tab) {
         val currentTab = currentRootTabOrNull()

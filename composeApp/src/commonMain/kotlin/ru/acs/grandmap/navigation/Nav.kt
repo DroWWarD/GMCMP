@@ -22,16 +22,18 @@ import com.arkivanov.decompose.extensions.compose.subscribeAsState
 import kotlinx.coroutines.flow.collectLatest
 import ru.acs.grandmap.core.BackHandlerCompat
 import ru.acs.grandmap.feature.auth.AuthScreen
+import ru.acs.grandmap.feature.chat.ChatScreen
 import ru.acs.grandmap.feature.game.GameScreen
 import ru.acs.grandmap.feature.game.snake.SnakeScreen
+import ru.acs.grandmap.feature.news.NewsScreen
 import ru.acs.grandmap.feature.profile.ProfileScreen
-import ru.acs.grandmap.feature.sessions.SessionsScreen
-import ru.acs.grandmap.feature.settings.SettingsScreen
-import ru.acs.grandmap.feature.work.WorkContent
+import ru.acs.grandmap.feature.profile.settings.sessions.SessionsScreen
+import ru.acs.grandmap.feature.profile.settings.SettingsScreen
+import ru.acs.grandmap.feature.work.WorkScreen
 import ru.acs.grandmap.ui.common.AppTopBar
 
 sealed class Tab(val route: String, val label: String, val icon: ImageVector) {
-    data object Me : Tab("me", "Профиль", Icons.Filled.Person)
+    data object Profile : Tab("me", "Профиль", Icons.Filled.Person)
     data object Work : Tab("work", "Функции", Icons.Filled.CardTravel)
     data object Chat : Tab("chat", "Чат", Icons.AutoMirrored.Filled.Chat)
     data object News : Tab("news", "Новости", Icons.Filled.Newspaper)
@@ -39,7 +41,7 @@ sealed class Tab(val route: String, val label: String, val icon: ImageVector) {
 }
 
 private fun saveKeyOf(cfg: RootComponent.Config): String = when (cfg) {
-    RootComponent.Config.Me       -> "tab:me"
+    RootComponent.Config.Profile       -> "tab:profile"
     RootComponent.Config.Work     -> "tab:work"
     RootComponent.Config.Chat     -> "tab:chat"
     RootComponent.Config.News     -> "tab:news"
@@ -54,7 +56,7 @@ private fun titleFor(tab: Tab) = when (tab) {
     Tab.Chat -> "Чат"
     Tab.News -> "Новости"
     Tab.Game -> "Игры"
-    Tab.Me -> "Профиль"
+    Tab.Profile -> "Профиль"
 }
 
 @Composable
@@ -105,14 +107,14 @@ fun RootScaffold(
         RootComponent.Config.News -> Tab.News
         RootComponent.Config.Game -> Tab.Game
         RootComponent.Config.GameSnake -> Tab.Game
-        RootComponent.Config.Me -> Tab.Me
+        RootComponent.Config.Profile -> Tab.Profile
         RootComponent.Config.Auth -> Tab.Work
-        RootComponent.Config.Sessions -> Tab.Me
-        RootComponent.Config.Settings -> Tab.Me
+        RootComponent.Config.Sessions -> Tab.Profile
+        RootComponent.Config.Settings -> Tab.Profile
     }
 
     val isRoot = when (stack.active.configuration) {
-        RootComponent.Config.Me,
+        RootComponent.Config.Profile,
         RootComponent.Config.Work,
         RootComponent.Config.Chat,
         RootComponent.Config.News,
@@ -120,7 +122,7 @@ fun RootScaffold(
         else -> false
     }
 
-    val tabs = remember { listOf(Tab.Me, Tab.Work, Tab.Chat, Tab.News, Tab.Game) }
+    val tabs = remember { listOf(Tab.Profile, Tab.Work, Tab.Chat, Tab.News, Tab.Game) }
     val tabStateHolder = rememberSaveableStateHolder()
 
     val topBarController = remember { TopBarController() }
@@ -202,12 +204,12 @@ fun RootScaffold(
                         val saveKey = saveKeyOf(child.configuration)
                         tabStateHolder.SaveableStateProvider(saveKey) {
                             when (val inst = child.instance) {
-                                is RootComponent.Child.Me -> ProfileScreen(component = inst.component, topBarController)
-                                is RootComponent.Child.Work -> WorkContent(inst.component)
-                                is RootComponent.Child.Chat -> Placeholder("Здесь будут чаты")
-                                is RootComponent.Child.News -> Placeholder("Здесь будут новости")
+                                is RootComponent.Child.Profile -> ProfileScreen(component = inst.component, topBarController)
+                                is RootComponent.Child.Work -> WorkScreen(inst.component, topBarController)
+                                is RootComponent.Child.Chat -> ChatScreen(inst.component, topBarController)
+                                is RootComponent.Child.News -> NewsScreen(inst.component, topBarController)
                                 is RootComponent.Child.Game -> GameScreen(inst.component, topBarController)
-                                is RootComponent.Child.GameSnake -> SnakeScreen(inst.component)
+                                is RootComponent.Child.GameSnake -> SnakeScreen(inst.component, topBarController)
                                 is RootComponent.Child.Auth -> {}
                                 is RootComponent.Child.Settings -> SettingsScreen(inst.component, topBarController)
                                 is RootComponent.Child.Sessions -> SessionsScreen(inst.component, topBarController)
@@ -258,12 +260,12 @@ fun RootScaffold(
                                 val saveKey = saveKeyOf(child.configuration)
                                 tabStateHolder.SaveableStateProvider(saveKey) {
                                     when (val inst = child.instance) {
-                                        is RootComponent.Child.Work -> WorkContent(inst.component)
-                                        is RootComponent.Child.Chat -> Placeholder("Здесь будут чаты")
-                                        is RootComponent.Child.News -> Placeholder("Здесь будут новости")
+                                        is RootComponent.Child.Work -> WorkScreen(inst.component, topBarController)
+                                        is RootComponent.Child.Chat -> ChatScreen(inst.component, topBarController)
+                                        is RootComponent.Child.News ->  NewsScreen(inst.component, topBarController)
                                         is RootComponent.Child.Game -> GameScreen(inst.component, topBarController)
-                                        is RootComponent.Child.GameSnake -> SnakeScreen( inst.component)
-                                        is RootComponent.Child.Me   -> ProfileScreen(inst.component, topBarController)
+                                        is RootComponent.Child.GameSnake -> SnakeScreen( inst.component, topBarController)
+                                        is RootComponent.Child.Profile   -> ProfileScreen(inst.component, topBarController)
                                         is RootComponent.Child.Auth -> {}
                                         is RootComponent.Child.Settings -> SettingsScreen(inst.component, topBarController)
                                         is RootComponent.Child.Sessions -> SessionsScreen(inst.component, topBarController)

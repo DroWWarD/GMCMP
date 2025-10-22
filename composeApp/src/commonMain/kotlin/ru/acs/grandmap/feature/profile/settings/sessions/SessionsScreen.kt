@@ -1,4 +1,4 @@
-package ru.acs.grandmap.feature.sessions
+package ru.acs.grandmap.feature.profile.settings.sessions
 
 import TopBarController
 import TopBarSpec
@@ -12,21 +12,18 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import ru.acs.grandmap.ui.common.AppBarIconAction
 import ru.acs.grandmap.ui.common.AppBarOverflowItem
-import ru.acs.grandmap.ui.common.AppTopBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

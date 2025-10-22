@@ -1,5 +1,7 @@
 package ru.acs.grandmap.feature.game.snake
 
+import TopBarController
+import TopBarSpec
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -25,7 +27,18 @@ import kotlin.math.abs
 import kotlin.math.min
 
 @Composable
-fun SnakeScreen(component: SnakeComponent) {
+fun SnakeScreen(
+    component: SnakeComponent,
+    topBar: TopBarController
+) {
+    LaunchedEffect(Unit) {
+        topBar.update(
+            TopBarSpec(
+                title = "Игра \"Змейка\"",
+                onBack = component::back
+            )
+        )
+    }
     val engine = remember { SnakeEngine(w = 22, h = 22) }
 
     val engineStateSaver = remember {
@@ -42,10 +55,10 @@ fun SnakeScreen(component: SnakeComponent) {
             restore = { l ->
                 val pairs = l[0] as IntArray
                 val snake = pairs.asList().chunked(2).map { Cell(it[0], it[1]) }
-                val food  = Cell(l[1] as Int, l[2] as Int)
-                val dir   = Dir.values()[l[3] as Int]
+                val food = Cell(l[1] as Int, l[2] as Int)
+                val dir = Dir.values()[l[3] as Int]
                 val score = l[4] as Int
-                val over  = l[5] as Boolean
+                val over = l[5] as Boolean
                 EngineState(snake = snake, food = food, dir = dir, score = score, gameOver = over)
             }
         )
@@ -59,6 +72,7 @@ fun SnakeScreen(component: SnakeComponent) {
         onDispose {
             running = false
             st = engine.state()
+            topBar.clear()
         }
     }
 
@@ -82,14 +96,14 @@ fun SnakeScreen(component: SnakeComponent) {
     }
 
     // Клавиатура — только для не-тач (Desktop/Web без тача)
-    val keyHandler: (KeyEvent) -> Boolean = handler@ { e ->
+    val keyHandler: (KeyEvent) -> Boolean = handler@{ e ->
         if (e.type != KeyEventType.KeyDown) return@handler false
         when (e.key) {
-            Key.DirectionUp    -> engine.changeDir(Dir.Up)
-            Key.DirectionDown  -> engine.changeDir(Dir.Down)
-            Key.DirectionLeft  -> engine.changeDir(Dir.Left)
+            Key.DirectionUp -> engine.changeDir(Dir.Up)
+            Key.DirectionDown -> engine.changeDir(Dir.Down)
+            Key.DirectionLeft -> engine.changeDir(Dir.Left)
             Key.DirectionRight -> engine.changeDir(Dir.Right)
-            Key.Spacebar       -> running = !running
+            Key.Spacebar -> running = !running
             else -> return@handler false
         }
         st = engine.state()
@@ -137,23 +151,12 @@ fun SnakeScreen(component: SnakeComponent) {
         // Пауза при сворачивании/уходе из приложения
         LaunchedEffect(component.lifecycle) {
             component.lifecycle.doOnPause { running = false; st = engine.state() }
-            component.lifecycle.doOnStop  { running = false; st = engine.state() }
+            component.lifecycle.doOnStop { running = false; st = engine.state() }
         }
 
         // Верхняя панель
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            FilledTonalIconButton(onClick = component::back) { Icon(Icons.Filled.ArrowBack, null) }
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                AssistChip(onClick = { running = !running }, label = { Text(if (running) "Пауза" else "Старт") })
-                AssistChip(onClick = { engine.restart(); running = true; st = engine.state() }, label = { Text("Заново") })
-                Text("Счёт: ${st.score}")
-            }
-        }
 
+        Text("Счёт: ${st.score}")
         Spacer(Modifier.height(12.dp))
 
         // Игровое поле: ВСЕГДА целиком помещается (квадрат по min ширины/высоты оставшегося места)
@@ -161,7 +164,7 @@ fun SnakeScreen(component: SnakeComponent) {
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f), // берём всё оставшееся по высоте
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.TopStart
         ) {
             val boardSize = min(maxWidth, maxHeight)
             Box(
@@ -190,7 +193,10 @@ fun SnakeScreen(component: SnakeComponent) {
                     // еда
                     drawRect(
                         color = foodColor,
-                        topLeft = androidx.compose.ui.geometry.Offset(st.food.x * cell, st.food.y * cell),
+                        topLeft = androidx.compose.ui.geometry.Offset(
+                            st.food.x * cell,
+                            st.food.y * cell
+                        ),
                         size = androidx.compose.ui.geometry.Size(cell, cell)
                     )
 
@@ -212,11 +218,16 @@ fun SnakeScreen(component: SnakeComponent) {
                         tonalElevation = 2.dp,
                         shadowElevation = 2.dp
                     ) {
-                        Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Column(
+                            Modifier.padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
                             Text("Игра окончена", style = MaterialTheme.typography.titleLarge)
                             Text("Счёт: ${st.score}", style = MaterialTheme.typography.titleMedium)
                             Spacer(Modifier.height(8.dp))
-                            FilledTonalButton(onClick = { engine.restart(); st = engine.state(); running = true }) {
+                            FilledTonalButton(onClick = {
+                                engine.restart(); st = engine.state(); running = true
+                            }) {
                                 Text("Сыграть снова")
                             }
                         }
@@ -227,10 +238,16 @@ fun SnakeScreen(component: SnakeComponent) {
                         tonalElevation = 2.dp,
                         shadowElevation = 2.dp
                     ) {
-                        Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Column(
+                            Modifier.padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
                             Text("Пауза", style = MaterialTheme.typography.titleLarge)
                             Spacer(Modifier.height(8.dp))
-                            Text("Нажмите «Пробел» (Desktop/Web) или используйте кнопку ниже", style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                "Нажмите «Пробел» (Desktop/Web) или используйте кнопку ниже",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
                             Spacer(Modifier.height(12.dp))
                             FilledTonalButton(onClick = { running = true }) { Text("Продолжить") }
                         }
@@ -245,5 +262,7 @@ fun SnakeScreen(component: SnakeComponent) {
 }
 
 // Удобные пропсы для Canvas — без изменений
-private val EngineState.w get() = snake.maxOfOrNull { it.x }?.let { maxX -> maxOf(maxX + 1, 22) } ?: 22
-private val EngineState.h get() = snake.maxOfOrNull { it.y }?.let { maxY -> maxOf(maxY + 1, 22) } ?: 22
+private val EngineState.w
+    get() = snake.maxOfOrNull { it.x }?.let { maxX -> maxOf(maxX + 1, 22) } ?: 22
+private val EngineState.h
+    get() = snake.maxOfOrNull { it.y }?.let { maxY -> maxOf(maxY + 1, 22) } ?: 22

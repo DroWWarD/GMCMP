@@ -1,10 +1,9 @@
-package ru.acs.grandmap.feature.sessions
+package ru.acs.grandmap.feature.profile.settings.sessions
 
 import androidx.compose.runtime.*
 import com.arkivanov.decompose.ComponentContext
 import kotlinx.coroutines.*
 import ru.acs.grandmap.core.toUserMessage
-import ru.acs.grandmap.core.auth.TokenManager
 
 interface SessionsComponent {
     val state: State<UiState>
