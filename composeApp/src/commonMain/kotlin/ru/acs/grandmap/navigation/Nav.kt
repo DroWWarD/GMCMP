@@ -162,7 +162,9 @@ fun RootScaffold(
                             onToggleTheme = onToggleTheme,
                             dark = dark,
                             primaryActions = spec.primary,
-                            overflowItems = spec.overflow
+                            overflowItems = spec.overflow,
+                            overflowOpen = spec.overflowOpen,
+                            onOverflowOpenChange = { open -> topBarController.setOverflowOpen(open) }
                         )
                     }
                 },
@@ -248,7 +250,11 @@ fun RootScaffold(
                             onToggleTheme = onToggleTheme,
                             dark = dark,
                             primaryActions = spec.primary,
-                            overflowItems = spec.overflow
+                            overflowItems = spec.overflow,
+                            overflowOpen = spec.overflowOpen,
+                            onOverflowOpenChange = { open -> topBarController.setOverflowOpen(open) },
+                            windowInsets = WindowInsets(0),
+                            pinButtonsToBottom = true
                         )
                         Divider()
                     }

@@ -31,6 +31,12 @@ fun AppTopBar(
 
     // можно скрыть пункт темы на конкретном экране, если нужно
     showThemeToggleInOverflow: Boolean = true,
+    // текущее состояние меню и колбэк о его смене
+    overflowOpen: Boolean = false,
+    onOverflowOpenChange: ((Boolean) -> Unit)? = null,
+
+    windowInsets: WindowInsets = TopAppBarDefaults.windowInsets,
+    pinButtonsToBottom: Boolean = false,
 
     modifier: Modifier = Modifier,
     colors: TopAppBarColors = TopAppBarDefaults.centerAlignedTopAppBarColors(
@@ -42,13 +48,25 @@ fun AppTopBar(
     scrollBehavior: TopAppBarScrollBehavior? = null,
     progressHeight: Dp = 4.dp
 ) {
+    // локальное состояние меню + синк с внешним флагом из контроллера
     var menuOpen by remember { mutableStateOf(false) }
+    LaunchedEffect(overflowOpen) { menuOpen = overflowOpen }
+
+
+    val btnAlignMod =
+        if (pinButtonsToBottom)
+            Modifier
+                .fillMaxHeight()
+                .wrapContentHeight(Alignment.Bottom)
+                .padding(bottom = 0.dp)
+        else
+            Modifier
 
     // ↓ автоматически дополняем меню пунктом «Тёмная/Светлая тема», если есть обработчик
     val mergedOverflow = remember(overflowItems, onToggleTheme, dark, showThemeToggleInOverflow) {
         if (showThemeToggleInOverflow && onToggleTheme != null && dark != null) {
             val label = if (dark) "Светлая тема" else "Тёмная тема"
-            val icon  = if (dark) Icons.Filled.LightMode else Icons.Filled.DarkMode
+            val icon = if (dark) Icons.Filled.LightMode else Icons.Filled.DarkMode
             overflowItems + AppBarOverflowItem(
                 title = label,
                 onClick = onToggleTheme,
@@ -62,6 +80,7 @@ fun AppTopBar(
     Box(modifier = modifier) {
         CenterAlignedTopAppBar(
             colors = colors,
+            windowInsets = windowInsets,
             scrollBehavior = scrollBehavior,
             title = {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -85,29 +104,44 @@ fun AppTopBar(
             },
             navigationIcon = {
                 if (onBack != null) {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
+                    Box(btnAlignMod) {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
+                        }
                     }
                 }
             },
             actions = {
-                // ВАЖНО: НЕ показываем иконку темы в «видимых» действиях — только в ⋮
+                //  НЕ показываем иконку темы в «видимых» действиях — только в ⋮
                 primaryActions.forEach { a ->
                     if (a.visible) {
-                        IconButton(onClick = a.onClick, enabled = a.enabled) {
-                            Icon(a.icon, a.contentDescription)
+                        Box(btnAlignMod) {
+                            IconButton(onClick = a.onClick, enabled = a.enabled) {
+                                Icon(a.icon, a.contentDescription)
+                            }
                         }
                     }
                 }
 
                 if (mergedOverflow.isNotEmpty()) {
-                    IconButton(onClick = { menuOpen = true }) {
-                        Icon(Icons.Filled.MoreVert, contentDescription = "Меню")
+                    Box(btnAlignMod) {
+                        IconButton(onClick = { onOverflowOpenChange?.invoke(true) }) {
+                            Icon(Icons.Filled.MoreVert, contentDescription = "Меню")
+                        }
                     }
-                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    DropdownMenu(
+                        expanded = menuOpen,
+                        onDismissRequest = {
+                            menuOpen = false
+                            onOverflowOpenChange?.invoke(false)
+                        }) {
                         mergedOverflow.forEach { item ->
                             DropdownMenuItem(
-                                onClick = { menuOpen = false; item.onClick() },
+                                onClick = {
+                                    menuOpen = false
+                                    onOverflowOpenChange?.invoke(false)
+                                    item.onClick()
+                                },
                                 text = {
                                     val color = if (item.danger) MaterialTheme.colorScheme.error
                                     else LocalContentColor.current

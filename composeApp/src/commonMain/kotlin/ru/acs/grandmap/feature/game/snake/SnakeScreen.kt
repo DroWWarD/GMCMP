@@ -5,8 +5,6 @@ import TopBarSpec
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.listSaver
@@ -24,7 +22,6 @@ import com.arkivanov.essenty.lifecycle.doOnPause
 import com.arkivanov.essenty.lifecycle.doOnStop
 import kotlinx.coroutines.delay
 import kotlin.math.abs
-import kotlin.math.min
 
 @Composable
 fun SnakeScreen(
@@ -35,7 +32,9 @@ fun SnakeScreen(
         topBar.update(
             TopBarSpec(
                 title = "Игра \"Змейка\"",
-                onBack = component::back
+                onBack = component::back,
+                visible = true,
+                overflowOpen = false // явно закрыто при входе
             )
         )
     }
@@ -65,6 +64,15 @@ fun SnakeScreen(
     }
     var st by rememberSaveable(stateSaver = engineStateSaver) { mutableStateOf(engine.state()) }
     var running by rememberSaveable { mutableStateOf(true) }
+
+    // пауза, если открыт бургер
+    val bar by topBar.spec.collectAsState()
+    LaunchedEffect(bar.overflowOpen) {
+        if (bar.overflowOpen) {
+            running = false
+            st = engine.state()
+        }
+    }
 
     LaunchedEffect(engine) { engine.restore(st) }
 
