@@ -227,7 +227,9 @@ fun RootScaffold(
                     tabs.forEach { t ->
                         NavigationRailItem(
                             selected = (t == selected),
-                            onClick = { root.select(t) },
+                            onClick = {
+                                if (t == selected) root.reselect(t) else root.select(t)
+                            },
                             icon = { Icon(t.icon, contentDescription = t.label) },
                             label = { Text(t.label) },
                             colors = NavigationRailItemDefaults.colors(
