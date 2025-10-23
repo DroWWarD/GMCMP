@@ -246,6 +246,8 @@ fun RootScaffold(
                     if (spec.visible) {
                         AppTopBar(
                             title = spec.title ?: titleFor(selected),
+                            subtitle = spec.subtitle,
+                            loading = spec.loading,
                             onBack = spec.onBack,
                             onToggleTheme = onToggleTheme,
                             dark = dark,
