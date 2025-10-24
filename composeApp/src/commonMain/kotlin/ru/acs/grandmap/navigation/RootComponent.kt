@@ -231,14 +231,6 @@ class DefaultRootComponent(
     private val _events = MutableSharedFlow<UiEvent>(extraBufferCapacity = 1)
     override val events: SharedFlow<UiEvent> = _events.asSharedFlow()
 
-    private fun showSnack(text: String) {
-        _events.tryEmit(UiEvent.Snack(text))
-    }
-
-    fun openSessionsFromSettings() {
-        rememberTab(RootComponent.Config.Sessions)
-        nav.bringToFront(RootComponent.Config.Sessions)
-    }
 
     /** Можно ли сделать back ВНУТРИ текущей вкладки? */
     fun canGoBackInTab(): Boolean = childStack.value.backStack.isNotEmpty()
@@ -305,7 +297,16 @@ class DefaultRootComponent(
                     repo = repo,
                     onOpenSettings = { nav.push(RootComponent.Config.Settings) },
                     onOpenSessions = { nav.push(RootComponent.Config.Sessions) },
-                    onLogOut = { logout() }
+                    onLogOut = { logout() },
+
+                    // ← фабрика создания сессий внутри профиля
+                    sessionsFactory = { cc ->
+                        DefaultSessionsComponent(
+                            componentContext = cc,
+                            api = SessionsApi(httpClient, tokenManager),
+                            onBack = { /* для модалки не нужен, можно no-op */ }
+                        )
+                    }
                 )
             )
         }

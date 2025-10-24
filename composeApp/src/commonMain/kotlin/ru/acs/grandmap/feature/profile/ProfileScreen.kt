@@ -8,6 +8,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -15,17 +17,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import ru.acs.grandmap.ui.common.AppConfirmDialog
+import ru.acs.grandmap.feature.profile.settings.sessions.SessionsContent
+import ru.acs.grandmap.ui.common.AppBarIconAction
+import ru.acs.grandmap.ui.common.AppBarOverflowItem
+import ru.acs.grandmap.ui.common.dialogs.AppConfirmDialog
+import ru.acs.grandmap.ui.common.InfoMetricsCard
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import ru.acs.grandmap.ui.common.MenuItem
-import ru.acs.grandmap.ui.common.TwoTilesRow
+import ru.acs.grandmap.ui.common.MetricSpec
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
-@OptIn(ExperimentalTime::class)
+@OptIn(ExperimentalTime::class, ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
     component: ProfileComponent,
@@ -33,13 +40,36 @@ fun ProfileScreen(
 ) {
     val s by component.uiState
     var showLogout by remember { mutableStateOf(false) }
+    var showSessions by remember { mutableStateOf(false) }
+    val sessions = remember(component) { component.sessionsComponent() }
 
-    LaunchedEffect(Unit) {
-        topBar.update(TopBarSpec(title = "Профиль", visible = true))
+    LaunchedEffect( s.loading, s.error, s.lastSync) {
+        topBar.update(
+            TopBarSpec(
+                title = "Профиль",
+                subtitle = when {
+                    s.loading -> "Обновляем профиль…"
+                    s.error != null -> "Ошибка: ${s.error}"
+                    s.lastSync != null -> "Обновлено ${formatAgoNonComposable(s.lastSync!!)}"
+                    else -> "Нет данных"
+                },
+                loading = s.loading,
+                primary = listOf(AppBarIconAction(Icons.Default.Refresh, "Обновить", component::refresh, enabled = !s.loading)),
+                overflow = listOf(
+                    AppBarOverflowItem("Подсказка", onClick = {/*TODO*/}, leadingIcon = Icons.AutoMirrored.Filled.HelpOutline),
+                    AppBarOverflowItem("Обратная связь", onClick = {/*TODO*/}, leadingIcon = Icons.Default.Call),
+//                    AppBarOverflowItem("Инспектор БД", onClick = component::showDbInspector, leadingIcon = Icons.Filled.TableChart),
+//                    AppBarOverflowItem("Настройки", onClick = component::openSettings, leadingIcon = Icons.Filled.Settings),
+                    AppBarOverflowItem("Активные сеансы", onClick = { showSessions = true }, leadingIcon = Icons.Filled.Devices),
+                    AppBarOverflowItem("Выйти", onClick = { showLogout = true }, leadingIcon = Icons.AutoMirrored.Filled.Logout, danger = true),
+                ),
+                visible = true
+            )
+        )
     }
+    DisposableEffect(Unit) { onDispose { topBar.clear() } }
 
-    Box(Modifier.fillMaxSize()) {                    // ← корневой слой экрана
-
+    Box(Modifier.fillMaxSize()) {
         // ======= ОСНОВНОЙ КОНТЕНТ (первым — будет под модалкой) =======
         val scroll = rememberScrollState()
         val shape = RoundedCornerShape(16.dp)
@@ -51,37 +81,26 @@ fun ProfileScreen(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            HeaderCard(
-                loading = s.loading,
-                lastSync = s.lastSync,
-                onRefresh = component::refresh
-            )
-            InfoSection(
-                loading = s.loading && s.employee == null,
-                name = s.employee?.displayName,
-                phone = s.employee?.phoneE164,
-                email = s.employee?.email,
-                number = s.employee?.employeeNumber,
-                title = s.employee?.jobTitle
-            )
-            TwoTilesRow(
-                left  = { MenuItem(Icons.Filled.EmojiEvents, "Награды", onClick = { /* TODO */ }, shape = shape) },
-                right = { MenuItem(Icons.Filled.Star,        "Отзывы",  onClick = { /* TODO */ }, shape = shape) },
-            )
-            TwoTilesRow(
-                left  = { MenuItem(Icons.Filled.PhotoCamera, "Фото",     onClick = { /* TODO */ }, shape = shape) },
-                right = { MenuItem(Icons.Filled.CalendarMonth,"Календарь",onClick = { /* TODO */ }, shape = shape) },
-            )
-            TwoTilesRow(
-                left  = { MenuItem(Icons.Filled.Badge, "HR и док-ты", onClick = { /* TODO */ }, shape = shape) },
-                right = { MenuItem(Icons.Filled.Notifications, "Уведомления", onClick = { /* TODO */ }, shape = shape) },
-            )
-            TwoTilesRow(
-                left  = { MenuItem(Icons.Filled.School, "Обучение", onClick = { /* TODO */ }, shape = shape) },
-                right = { MenuItem(Icons.Filled.Search, "WIKI",     onClick = { /* TODO */ }, shape = shape) },
+            InfoMetricsCard(
+                title = s.employee?.displayName ?: "",
+                subtitles = listOf("ООО \"АКС\" • IT-департамент",s.employee?.jobTitle?:"", "т/н:${s.employee?.employeeNumber} • В команде с ${s.employee?.hireDate?.substring(0, 4)}"),
+                onAvatarClick = {/*TODO*/},
+                avatarEnabled = true,
+                metrics = listOf(
+                    MetricSpec(Icons.Default.EmojiEvents, "--", "награды", onClick = {/*TODO*/}),
+                    MetricSpec(Icons.Default.Star,        "--", "отзывы", onClick = {/*TODO*/}),
+                    MetricSpec(Icons.Default.PhotoCamera, "--",  "фото", onClick = {/*TODO*/})
+                ),
+                // можно менять стили как в MenuItem:
+                elevation = CardDefaults.cardElevation(2.dp),
+
             )
 
-            MenuItem(Icons.Filled.TableChart, "Инспектор БД", onClick = component::showDbInspector)
+            MenuItem(Icons.Filled.Notifications, "Уведомления", onClick = { /* TODO */ }, shape = shape)
+            MenuItem(Icons.Filled.CalendarMonth,"Календарь",onClick = { /* TODO */ }, shape = shape)
+            MenuItem(Icons.Filled.Badge, "HR и док-ты", onClick = { /* TODO */ }, shape = shape)
+            MenuItem(Icons.Filled.School, "Обучение", onClick = { /* TODO */ }, shape = shape)
+            MenuItem(Icons.Default.TravelExplore, "WIKI",     onClick = { /* TODO */ }, shape = shape)
 
             if (s.dbVisible) {
                 DbInspectorDialog(
@@ -92,36 +111,35 @@ fun ProfileScreen(
                     onSync = component::syncAndRefreshDbInspector
                 )
             }
-
-            MenuItem(Icons.Filled.Settings, "Настройки", onClick = component::openSettings)
-            MenuItem(Icons.Filled.Devices,  "Сеансы на устройствах", onClick = component::openSessions)
-
-            // ВЫХОД → открываем модалку
-            MenuItem(
-                icon = Icons.Filled.Logout,
-                title = "Выйти",
-                onClick = { showLogout = true },
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                    contentColor   = MaterialTheme.colorScheme.onErrorContainer
+            Spacer(Modifier.height(20.dp))
+            //------------ Версия ---------------------------------------
+            Text(
+                text = "Версия 0.0.1 Pre-Alpha",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 ),
-                leadingTint = MaterialTheme.colorScheme.onErrorContainer,
-                trailingTint = MaterialTheme.colorScheme.onErrorContainer
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
             )
-
-            if (s.error != null && s.employee == null) {
-                Text(
-                    s.error ?: "",
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-                OutlinedButton(onClick = { component::refresh }) { Text("Повторить") }
-            }
-
-            Spacer(Modifier.height(64.dp))
+            Spacer(Modifier.height(20.dp))
         }
 
-        // ======= МОДАЛКА (последним слоем — окажется поверх и центрируется на весь экран) =======
+        // ======= МОДАЛКИ =======
+
+        if (showSessions) {
+            val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            ModalBottomSheet(
+//                containerColor = MaterialTheme.colorScheme.secondary,
+                onDismissRequest = { showSessions = false },
+                sheetState = sheetState,
+                dragHandle = { BottomSheetDefaults.DragHandle() },
+            ) {
+                SessionsContent(component = sessions, modifier = Modifier.padding(16.dp))
+            }
+        }
+
         AppConfirmDialog(
             visible = showLogout,
             onDismissRequest = { showLogout = false },
@@ -240,6 +258,18 @@ private fun formatAgo(instant: Instant): String {
     }
 }
 
+@OptIn(ExperimentalTime::class)
+fun formatAgoNonComposable(instant: Instant): String {
+    // очень простой релятив: "только что", "N мин назад", "N ч назад"
+    val now = Clock.System.now()
+    val diff = now - instant
+    return when {
+        diff < 30.seconds -> "только что"
+        diff < 60.minutes -> "${(diff.inWholeMinutes).coerceAtLeast(1)} мин назад"
+        else -> "${(diff.inWholeHours)} ч назад"
+    }
+}
+
 @Composable
 fun DbInspectorDialog(
     rows: List<ProfileRepository.DebugRow>,
@@ -274,6 +304,7 @@ fun DbInspectorDialog(
                 Column(
                     Modifier
                         .fillMaxWidth()
+                        .fillMaxHeight(0.5f)
                         .verticalScroll(scroll),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {

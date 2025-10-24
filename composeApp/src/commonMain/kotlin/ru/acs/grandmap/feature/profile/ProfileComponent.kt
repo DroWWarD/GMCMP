@@ -3,14 +3,19 @@ package ru.acs.grandmap.feature.profile
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import com.arkivanov.decompose.ComponentContext
+import com.arkivanov.decompose.childContext
 import com.arkivanov.essenty.lifecycle.doOnCreate
 import kotlinx.coroutines.*
 import kotlinx.datetime.Instant
 import ru.acs.grandmap.feature.auth.dto.EmployeeDto
+import ru.acs.grandmap.feature.profile.di.SessionsFactory
+import ru.acs.grandmap.feature.profile.settings.sessions.SessionsComponent
+import ru.acs.grandmap.navigation.RootComponent
 import kotlin.time.ExperimentalTime
 
 interface ProfileComponent {
     val uiState: State<UiState>
+    fun sessionsComponent(): SessionsComponent
     fun refresh(force: Boolean = true)
     fun openSettings()
     fun openSessions()
@@ -39,12 +44,18 @@ class DefaultProfileComponent(
     private val repo: ProfileRepository,
     private val onOpenSettings: () -> Unit,
     private val onOpenSessions: () -> Unit,
+    private val sessionsFactory: SessionsFactory,
     private  val onLogOut: () -> Unit
 ) : ProfileComponent, ComponentContext by componentContext {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val _state = mutableStateOf(UiState())
     override val uiState: State<UiState> = _state
+
+    private val sessions by lazy {
+        sessionsFactory(childContext("sessions"))
+    }
+    override fun sessionsComponent(): SessionsComponent = sessions
 
     init {
         // 1) Быстро показываем кэш (если есть), полностью рисуем экран.
